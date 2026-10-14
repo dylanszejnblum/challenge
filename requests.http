@@ -1,0 +1,55 @@
+# REST Client (VS Code) / JetBrains HTTP Client. Swagger UI: http://localhost:3000/docs
+@base = http://localhost:3000
+
+### Buscar activos por ticker o nombre
+GET {{base}}/instruments?q=pampa
+
+### Portfolio del usuario 1 (seed)
+GET {{base}}/users/1/portfolio
+
+### Ingreso de pesos (CASH_IN sobre el instrumento ARS, id 66)
+POST {{base}}/orders
+Content-Type: application/json
+
+{ "userId": 2, "instrumentId": 66, "side": "CASH_IN", "type": "MARKET", "size": 100000 }
+
+### Compra MARKET por cantidad: se ejecuta al último close → FILLED
+POST {{base}}/orders
+Content-Type: application/json
+
+{ "userId": 2, "instrumentId": 47, "side": "BUY", "type": "MARKET", "size": 10 }
+
+### Compra MARKET por monto en pesos: máximo de acciones enteras → FILLED
+POST {{base}}/orders
+Content-Type: application/json
+
+{ "userId": 2, "instrumentId": 47, "side": "BUY", "type": "MARKET", "amount": "10000" }
+
+### Compra LIMIT → NEW (reserva los pesos hasta ejecutarse o cancelarse)
+# @name limitOrder
+POST {{base}}/orders
+Content-Type: application/json
+
+{ "userId": 2, "instrumentId": 47, "side": "BUY", "type": "LIMIT", "size": 10, "price": "900.50" }
+
+### Cancelar la orden LIMIT anterior (solo NEW → CANCELLED)
+POST {{base}}/orders/{{limitOrder.response.body.id}}/cancel
+
+### Venta por más acciones de las disponibles → REJECTED (queda guardada)
+POST {{base}}/orders
+Content-Type: application/json
+
+{ "userId": 2, "instrumentId": 47, "side": "SELL", "type": "MARKET", "size": 100000 }
+
+### Reintento idempotente: misma key → 200 con la orden original, sin duplicar
+POST {{base}}/orders
+Content-Type: application/json
+Idempotency-Key: 6f1c2a9e-retry-demo
+
+{ "userId": 2, "instrumentId": 47, "side": "BUY", "type": "MARKET", "size": 1 }
+
+### Error de validación → 400 application/problem+json
+POST {{base}}/orders
+Content-Type: application/json
+
+{ "userId": 2, "instrumentId": 47, "side": "BUY", "type": "LIMIT", "size": 1, "price": "1.005" }
