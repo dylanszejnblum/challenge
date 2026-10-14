@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { LoggerModule } from 'nestjs-pino';
 import { DatabaseModule } from './db/database';
 import { InstrumentsModule } from './instruments/instruments.module';
+import { PortfolioModule } from './portfolio/portfolio.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { InstrumentsModule } from './instruments/instruments.module';
     }),
     DatabaseModule,
     InstrumentsModule,
+    PortfolioModule,
   ],
 })
 export class AppModule {}
