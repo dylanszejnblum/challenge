@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: cocos
+      POSTGRES_PASSWORD: cocos
+      POSTGRES_DB: cocos
+    ports:
+      - '5432:5432'
+    volumes:
+      # Init scripts run once, in name order: provided data first, then our migration.
+      - ./database.sql:/docker-entrypoint-initdb.d/01-database.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U cocos -d cocos']
+      interval: 2s
+      retries: 30
+
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgres://cocos:cocos@db:5432/cocos
+      PORT: 3000
+    ports:
+      - '3000:3000'
+    depends_on:
+      db:
+        condition: service_healthy
