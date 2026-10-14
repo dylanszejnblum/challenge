@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -126,6 +127,31 @@ export class OrdersService {
         .executeTakeFirstOrThrow();
       return { order, replayed: false };
     });
+  }
+
+  /**
+   * Only NEW orders can be cancelled. The conditional UPDATE is atomic, so a
+   * concurrent cancel/fill can't both win; no lock needed.
+   */
+  async cancel(id: number) {
+    const cancelled = await this.db
+      .updateTable('orders')
+      .set({ status: 'CANCELLED' })
+      .where('id', '=', id)
+      .where('status', '=', 'NEW')
+      .returningAll()
+      .executeTakeFirst();
+    if (cancelled) return cancelled;
+
+    const order = await this.db
+      .selectFrom('orders')
+      .select('status')
+      .where('id', '=', id)
+      .executeTakeFirst();
+    if (!order) throw new NotFoundException(`Order ${id} not found`);
+    throw new ConflictException(
+      `Only NEW orders can be cancelled; order ${id} is ${order.status}`,
+    );
   }
 
   private async priceFor(

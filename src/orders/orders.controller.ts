@@ -3,7 +3,10 @@ import {
   Body,
   Controller,
   Headers,
+  HttpCode,
   HttpStatus,
+  Param,
+  ParseIntPipe,
   Post,
   Res,
 } from '@nestjs/common';
@@ -39,5 +42,12 @@ export class OrdersController {
     const { order, replayed } = await this.orders.create(dto, idempotencyKey);
     res.status(replayed ? HttpStatus.OK : HttpStatus.CREATED);
     return toOrderResponse(order);
+  }
+
+  /** Cancel a NEW order. 409 if the order is in any other status. */
+  @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  async cancel(@Param('id', ParseIntPipe) id: number) {
+    return toOrderResponse(await this.orders.cancel(id));
   }
 }
