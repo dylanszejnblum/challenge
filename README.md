@@ -98,9 +98,15 @@ Los montos van como string a propósito, para que nadie del otro lado los parsee
 
 ## Arquitectura
 
-![Diagrama de arquitectura](docs/architecture.svg)
+**Lo que hay en este repo:**
 
-El diagrama está hecho en Excalidraw: [`docs/architecture.excalidraw`](docs/architecture.excalidraw) se puede abrir y editar en [excalidraw.com](https://excalidraw.com) (menú → Open). A la izquierda está lo que hay en este repo; a la derecha, cómo lo haría crecer para producción sin tener que tirar nada de lo que ya está.
+![Arquitectura actual](docs/architecture-today.svg)
+
+**Cómo lo haría crecer para producción**, sin tirar nada de lo que ya está (el detalle está en [Si esto fuera a producción](#si-esto-fuera-a-producción)):
+
+![Arquitectura en producción](docs/architecture-production.svg)
+
+Los diagramas están hechos en Excalidraw. El original, [`docs/architecture.excalidraw`](docs/architecture.excalidraw), se puede abrir y editar en [excalidraw.com](https://excalidraw.com) (menú → Open).
 
 ```
 src/
