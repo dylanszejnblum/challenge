@@ -336,3 +336,41 @@ describe('GET /instruments', () => {
     expect(pesos.body).toEqual([]);
   });
 });
+
+describe('GET /health', () => {
+  it('is up when the database is reachable', async () => {
+    await http().get('/health').expect(200, { status: 'ok', database: 'up' });
+  });
+});
+
+describe('database unavailable', () => {
+  let downApp: INestApplication<App>;
+
+  beforeAll(async () => {
+    // Same app, pointed at a port nobody listens on.
+    const url = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = 'postgres://cocos:cocos@127.0.0.1:1/cocos';
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+    downApp = moduleRef.createNestApplication();
+    configureApp(downApp);
+    await downApp.init();
+    process.env.DATABASE_URL = url;
+  });
+
+  afterAll(() => downApp?.close());
+
+  it('reports unhealthy', async () => {
+    await request(downApp.getHttpServer()).get('/health').expect(503);
+  });
+
+  it('answers 503 problem+json with Retry-After instead of a 500', async () => {
+    const res = await request(downApp.getHttpServer())
+      .get('/users/1/portfolio')
+      .expect(503)
+      .expect('Content-Type', /application\/problem\+json/)
+      .expect('Retry-After', '5');
+    expect(res.body.detail).toBe('Database unavailable, retry later');
+  });
+});

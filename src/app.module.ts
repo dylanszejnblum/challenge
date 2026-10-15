@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { LoggerModule } from 'nestjs-pino';
 import { DatabaseModule } from './db/database';
+import { HealthController } from './health.controller';
 import { InstrumentsModule } from './instruments/instruments.module';
 import { PortfolioModule } from './portfolio/portfolio.module';
 import { OrdersModule } from './orders/orders.module';
@@ -27,5 +28,6 @@ import { OrdersModule } from './orders/orders.module';
     PortfolioModule,
     OrdersModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}
