@@ -45,6 +45,9 @@ pnpm lint
 | `GET` | `/users/:userId/portfolio` | Valor total, pesos disponibles y posiciones |
 | `POST` | `/orders` | Manda una orden: `BUY`/`SELL` (`MARKET` o `LIMIT`), `CASH_IN`/`CASH_OUT` |
 | `POST` | `/orders/:id/cancel` | Cancela una orden en estado `NEW` |
+| `GET` | `/health` | 200 si la API llega a Postgres, 503 si no |
+
+En `/docs` está el Swagger completo: cada endpoint documenta qué recibe, qué devuelve y qué errores puede dar, con ejemplos. El JSON de OpenAPI está en `/docs-json` por si lo querés importar en Postman o Insomnia.
 
 ### Mandar una orden
 
@@ -65,6 +68,7 @@ Qué devuelve según el caso:
 | No alcanzan los pesos o las acciones | 201, `REJECTED` | Sí, como pide el enunciado |
 | Body inválido, usuario o instrumento que no existe | 400 / 404 | No |
 | `MARKET` sobre un activo sin precio, o un monto que no alcanza para una acción | 422 | No |
+| La base no está disponible | 503 + `Retry-After` | No (la transacción se revierte) |
 
 Separé esos casos a propósito. Una orden `REJECTED` está bien formada y el sistema decidió no ejecutarla; eso es parte del historial del usuario y tiene sentido guardarlo. Un request con datos inválidos directamente no es una orden, así que no lo persisto.
 
@@ -161,6 +165,18 @@ Si el cliente hace timeout y reintenta un `POST /orders`, sin esto compra dos ve
 
 Saldos, posiciones y portfolio no se cachean. Un saldo viejo en el camino de una orden es exactamente el doble gasto que el lock está evitando. Tampoco agregué Redis: no tengo un problema medido que lo justifique, y con los índices las queries tardan menos de un milisegundo.
 
+### Cuando se cae la base
+
+Si Postgres no responde, la API no se cuelga ni se cae, y tampoco devuelve un 500 genérico:
+
+- El pool tiene `connectionTimeoutMillis` de 5 s. Si la base no está, el request falla rápido en vez de quedar esperando para siempre.
+- `statement_timeout` de 10 s. Una query trabada no puede quedarse con el lock del usuario indefinidamente.
+- Los errores de conexión (conexión rechazada, DNS, base reiniciándose, demasiadas conexiones, timeouts) se responden como **503 con `Retry-After: 5`**. Ese 503 le dice al cliente algo útil: el request no se aplicó, porque la transacción se revirtió, y se puede reintentar. En `POST /orders`, si el cliente reintenta con la misma `Idempotency-Key`, no hay riesgo de duplicar la orden.
+- Si una conexión ociosa del pool se corta, por ejemplo porque se reinició la base, pg emite un `error` que sin handler tira abajo el proceso. Lo logueo, y el pool abre una conexión nueva en la próxima query.
+- `GET /health` hace un `select 1`. Lo usa el healthcheck de `docker compose`, y un load balancer lo usaría igual para sacar de rotación una instancia que no llega a la base.
+
+Lo probé en vivo: con `docker compose stop db` la API responde 503 y sigue arriba, y con `docker compose start db` vuelve sola, sin reiniciar nada. Hay un test e2e que levanta la app apuntando a un puerto donde no escucha nadie y verifica el 503.
+
 ### Tests contra Postgres real
 
 Testcontainers levanta un Postgres 18 con el mismo `database.sql` y la misma migración que usa `docker compose`. No hay mocks de la base, porque lo que más me interesa probar (los locks, los constraints, el tipo `numeric`) es justamente lo que un mock no tiene. Cada test crea su propio usuario, así que no dependen del orden ni entre sí.
@@ -170,6 +186,8 @@ Testcontainers levanta un Postgres 18 con el mismo `database.sql` y la misma mig
 Testcontainers 12 pide Node 22.22 o más, y Kysely 0.29 y `@nestjs/swagger` 12 se publican solo como ESM. Node 24 (la LTS activa) los carga desde CommonJS sin problema, y Jest los soporta con `--experimental-vm-modules`, que ya está en los scripts. Me pareció mejor que quedarme en versiones viejas.
 
 ### Otros detalles
+
+Swagger se genera con el plugin de `@nestjs/swagger` a partir de los DTOs y sus comentarios. Los services devuelven esos mismos tipos (`PortfolioDto`, `OrderDto`, `InstrumentDto`), así que si cambia la respuesta y no la documentación, el proyecto no compila.
 
 Los logs son JSON estructurado con pino, y cada request lleva un `x-request-id`: si lo manda el cliente o un gateway lo respeto, y si no genero uno. El CI de GitHub Actions corre lint, build, tests unitarios y e2e.
 

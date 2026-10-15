@@ -1,6 +1,9 @@
 # REST Client (VS Code) / JetBrains HTTP Client. Swagger UI: http://localhost:3000/docs
 @base = http://localhost:3000
 
+### Health: 200 si llega a Postgres, 503 si no
+GET {{base}}/health
+
 ### Buscar activos por ticker o nombre
 GET {{base}}/instruments?q=pampa
 
