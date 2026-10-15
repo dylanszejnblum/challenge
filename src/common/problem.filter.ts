@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { STATUS_CODES } from 'node:http';
+import { isDbUnavailable } from '../db/database';
 
 /** Every error leaves the API as RFC 9457 `application/problem+json`. */
 @Catch()
@@ -16,8 +17,11 @@ export class ProblemFilter implements ExceptionFilter {
   catch(err: unknown, host: ArgumentsHost) {
     const req = host.switchToHttp().getRequest<Request>();
     const res = host.switchToHttp().getResponse<Response>();
-    const status = err instanceof HttpException ? err.getStatus() : 500;
+    const dbDown = isDbUnavailable(err);
+    const status =
+      err instanceof HttpException ? err.getStatus() : dbDown ? 503 : 500;
     if (status >= 500) this.logger.error(err);
+    if (dbDown) res.setHeader('Retry-After', '5');
 
     const body = err instanceof HttpException ? err.getResponse() : undefined;
     const message =
@@ -25,7 +29,9 @@ export class ProblemFilter implements ExceptionFilter {
         ? body.message
         : err instanceof HttpException
           ? err.message
-          : 'Internal server error';
+          : dbDown
+            ? 'Database unavailable, retry later'
+            : 'Internal server error';
     const errors = Array.isArray(message) ? (message as string[]) : undefined;
 
     res

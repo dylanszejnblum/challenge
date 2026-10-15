@@ -1,4 +1,10 @@
-import { Global, Inject, Module, OnApplicationShutdown } from '@nestjs/common';
+import {
+  Global,
+  Inject,
+  Logger,
+  Module,
+  OnApplicationShutdown,
+} from '@nestjs/common';
 import Decimal from 'decimal.js';
 import { ColumnType, Generated, Kysely, PostgresDialect } from 'kysely';
 import { Pool, types } from 'pg';
@@ -66,6 +72,42 @@ export interface DB {
   };
 }
 
+const logger = new Logger('Database');
+
+const UNAVAILABLE_CODES = new Set([
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  '57P01', // admin_shutdown
+  '57P02', // crash_shutdown
+  '57P03', // cannot_connect_now (starting up / recovery)
+  '53300', // too_many_connections
+  '57014', // query_canceled (statement_timeout)
+]);
+
+/**
+ * True when the error means "the database can't serve us right now", as opposed
+ * to a bug or a bad query. Those become 503 + Retry-After: the request is safe
+ * to retry (the transaction rolled back, and POST /orders has Idempotency-Key).
+ */
+export function isDbUnavailable(err: unknown): boolean {
+  // Duck-typed: errors from node's net/dns may come from another realm, where
+  // `instanceof Error` is false.
+  if (typeof err !== 'object' || err === null) return false;
+  const { code, message } = err as { code?: unknown; message?: unknown };
+  if (typeof code === 'string')
+    return UNAVAILABLE_CODES.has(code) || code.startsWith('08'); // class 08: connection exception
+  // pg-pool timeouts and dropped connections carry no code.
+  return (
+    typeof message === 'string' &&
+    /timeout exceeded when trying to connect|Connection terminated/i.test(
+      message,
+    )
+  );
+}
+
 const DB_TOKEN = Symbol('DB');
 export const InjectDb = () => Inject(DB_TOKEN);
 
@@ -77,11 +119,22 @@ export const InjectDb = () => Inject(DB_TOKEN);
       useFactory: () => {
         const connectionString = process.env.DATABASE_URL;
         if (!connectionString) throw new Error('DATABASE_URL is not set');
-        return new Kysely<DB>({
-          dialect: new PostgresDialect({
-            pool: new Pool({ connectionString }),
-          }),
+        const pool = new Pool({
+          connectionString,
+          max: Number(process.env.DB_POOL_MAX ?? 10),
+          // Fail fast with a 503 instead of hanging the request when the DB is unreachable.
+          connectionTimeoutMillis: 5_000,
+          idleTimeoutMillis: 30_000,
+          // A stuck query would hold the user's advisory lock; cap it server-side.
+          statement_timeout: 10_000,
         });
+        // An idle client losing its connection (DB restart, network blip) emits
+        // 'error' on the pool; unhandled, that crashes the process. The pool drops
+        // the client and opens a new one on the next query.
+        pool.on('error', (err) =>
+          logger.error(err, 'Idle Postgres client error'),
+        );
+        return new Kysely<DB>({ dialect: new PostgresDialect({ pool }) });
       },
     },
   ],
