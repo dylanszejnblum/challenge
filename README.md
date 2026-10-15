@@ -12,7 +12,11 @@ Solo hace falta Docker:
 docker compose up --build
 ```
 
-Levanta Postgres con el `database.sql` del challenge más una migración mía, y la API en `http://localhost:3000`. La documentación de Swagger queda en `/docs`, y en [`requests.http`](requests.http) hay requests listos para probar desde VS Code (REST Client) o JetBrains.
+Levanta Postgres con el `database.sql` del challenge más una migración mía, y la API en `http://localhost:3000`. Para probarla:
+
+- **Swagger** en `http://localhost:3000/docs`.
+- **Postman**: importá [`cocos-challenge.postman_collection.json`](cocos-challenge.postman_collection.json). Cada request tiene tests, y si la corrés entera con el Runner recorre todo el flujo: ingreso de pesos, compras, una `LIMIT` que se cancela, rechazos, idempotencia y errores de validación. También corre desde la terminal con `npx newman run cocos-challenge.postman_collection.json`.
+- **REST Client** (VS Code) o JetBrains: [`requests.http`](requests.http).
 
 Si ya tenés algo corriendo en el 3000 o el 5432:
 
