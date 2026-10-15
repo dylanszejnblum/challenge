@@ -12,7 +12,9 @@ services:
       - ./database.sql:/docker-entrypoint-initdb.d/01-database.sql:ro
       - ./db/migrations/001_integrity_and_indexes.sql:/docker-entrypoint-initdb.d/02-migration.sql:ro
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U cocos -d cocos']
+      # Over TCP: during init Postgres only listens on the socket, so this stays
+      # unhealthy until the seed and migration are done.
+      test: ['CMD-SHELL', 'pg_isready -h localhost -U cocos -d cocos']
       interval: 2s
       retries: 30
 

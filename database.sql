@@ -1,508 +1,273 @@
---
--- PostgreSQL database dump
---
 
-
--- Dumped from database version 18.6 (c021049)
--- Dumped by pg_dump version 18.6
-
-SET statement_timeout = 0;
-SET lock_timeout = 0;
-SET idle_in_transaction_session_timeout = 0;
-SET transaction_timeout = 0;
-SET client_encoding = 'UTF8';
-SET standard_conforming_strings = on;
-SELECT pg_catalog.set_config('search_path', '', false);
-SET check_function_bodies = false;
-SET xmloption = content;
-SET client_min_messages = warning;
-SET row_security = off;
-
-SET default_tablespace = '';
-
-SET default_table_access_method = heap;
-
---
--- Name: instruments; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.instruments (
-    id integer NOT NULL,
-    ticker character varying(10),
-    name character varying(255),
-    type character varying(10)
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255),
+  accountNumber VARCHAR(20)
 );
 
-
---
--- Name: instruments_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.instruments_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: instruments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.instruments_id_seq OWNED BY public.instruments.id;
-
-
---
--- Name: marketdata; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.marketdata (
-    id integer NOT NULL,
-    instrumentid integer,
-    high numeric(10,2),
-    low numeric(10,2),
-    open numeric(10,2),
-    close numeric(10,2),
-    previousclose numeric(10,2),
-    date date
+CREATE TABLE instruments (
+  id SERIAL PRIMARY KEY,
+  ticker VARCHAR(10),
+  name VARCHAR(255),
+  type VARCHAR(10)
 );
 
-
---
--- Name: marketdata_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.marketdata_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: marketdata_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.marketdata_id_seq OWNED BY public.marketdata.id;
-
-
---
--- Name: orders; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.orders (
-    id integer NOT NULL,
-    instrumentid integer,
-    userid integer,
-    size integer,
-    price numeric(10,2),
-    type character varying(10),
-    side character varying(10),
-    status character varying(20),
-    datetime timestamp without time zone
+CREATE TABLE orders (
+  id SERIAL PRIMARY KEY,
+  instrumentId INT,
+  userId INT,
+  size INT,
+  price NUMERIC(10, 2),
+  type VARCHAR(10),
+  side VARCHAR(10),
+  status VARCHAR(20),
+  datetime TIMESTAMP,
+  FOREIGN KEY (instrumentId) REFERENCES instruments(id),
+  FOREIGN KEY (userId) REFERENCES users(id)
 );
 
-
---
--- Name: orders_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.orders_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: orders_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.orders_id_seq OWNED BY public.orders.id;
-
-
---
--- Name: users; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.users (
-    id integer NOT NULL,
-    email character varying(255),
-    accountnumber character varying(20)
+CREATE TABLE marketdata (
+  id SERIAL PRIMARY KEY,
+  instrumentId INT,
+  high NUMERIC(10, 2),
+  low NUMERIC(10, 2),
+  open NUMERIC(10, 2),
+  close NUMERIC(10, 2),
+  previousClose NUMERIC(10, 2),
+  date DATE,
+  FOREIGN KEY (instrumentId) REFERENCES instruments(id)
 );
 
-
---
--- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.users_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: users_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
-
-
---
--- Name: instruments id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.instruments ALTER COLUMN id SET DEFAULT nextval('public.instruments_id_seq'::regclass);
-
-
---
--- Name: marketdata id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.marketdata ALTER COLUMN id SET DEFAULT nextval('public.marketdata_id_seq'::regclass);
-
-
---
--- Name: orders id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.orders ALTER COLUMN id SET DEFAULT nextval('public.orders_id_seq'::regclass);
-
-
---
--- Name: users id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
-
-
---
--- Data for Name: instruments; Type: TABLE DATA; Schema: public; Owner: -
---
-
-INSERT INTO public.instruments VALUES (1, 'DYCA', 'Dycasa S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (2, 'CAPX', 'Capex S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (3, 'PGR', 'Phoenix Global Resources', 'ACCIONES');
-INSERT INTO public.instruments VALUES (4, 'MOLA', 'Molinos Agro S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (5, 'MIRG', 'Mirgor', 'ACCIONES');
-INSERT INTO public.instruments VALUES (6, 'PATA', 'Importadora y Exportadora de la Patagonia', 'ACCIONES');
-INSERT INTO public.instruments VALUES (7, 'TECO2', 'Telecom', 'ACCIONES');
-INSERT INTO public.instruments VALUES (8, 'FERR', 'Ferrum S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (9, 'SAMI', 'S.A San Miguel', 'ACCIONES');
-INSERT INTO public.instruments VALUES (10, 'IRCP', 'IRSA Propiedades Comerciales S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (11, 'GAMI', 'Boldt Gaming S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (12, 'DOME', 'Domec', 'ACCIONES');
-INSERT INTO public.instruments VALUES (13, 'INTR', 'Compañía Introductora de Buenos Aires S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (14, 'MTR', 'Matba Rofex S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (15, 'FIPL', 'Fiplasto', 'ACCIONES');
-INSERT INTO public.instruments VALUES (16, 'GARO', 'Garovaglio Y Zorraquín', 'ACCIONES');
-INSERT INTO public.instruments VALUES (17, 'SEMI', 'Molinos Juan Semino', 'ACCIONES');
-INSERT INTO public.instruments VALUES (18, 'HARG', 'Holcim (Argentina) S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (19, 'BPAT', 'Banco Patagonia', 'ACCIONES');
-INSERT INTO public.instruments VALUES (20, 'RIGO', 'Rigolleau S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (21, 'CVH', 'Cablevision Holding', 'ACCIONES');
-INSERT INTO public.instruments VALUES (22, 'BBAR', 'Banco Frances', 'ACCIONES');
-INSERT INTO public.instruments VALUES (23, 'LEDE', 'Ledesma', 'ACCIONES');
-INSERT INTO public.instruments VALUES (24, 'CELU', 'Celulosa Argentina S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (25, 'CECO2', 'Central Costanera', 'ACCIONES');
-INSERT INTO public.instruments VALUES (26, 'AGRO', 'Agrometal', 'ACCIONES');
-INSERT INTO public.instruments VALUES (27, 'AUSO', 'Autopistas del Sol', 'ACCIONES');
-INSERT INTO public.instruments VALUES (28, 'BHIP', 'Banco Hipotecario S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (29, 'BOLT', 'Boldt S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (30, 'CARC', 'Carboclor S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (31, 'BMA', 'Banco Macro S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (32, 'CRES', 'Cresud S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (33, 'EDN', 'Edenor S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (34, 'GGAL', 'Grupo Financiero Galicia', 'ACCIONES');
-INSERT INTO public.instruments VALUES (35, 'DGCU2', 'Distribuidora De Gas Cuyano S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (36, 'GBAN', 'Gas Natural Ban S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (37, 'CGPA2', 'Camuzzi Gas del Sur', 'ACCIONES');
-INSERT INTO public.instruments VALUES (38, 'CADO', 'Carlos Casado', 'ACCIONES');
-INSERT INTO public.instruments VALUES (39, 'GCLA', 'Grupo Clarin S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (40, 'GRIM', 'Grimoldi', 'ACCIONES');
-INSERT INTO public.instruments VALUES (41, 'RICH', 'Laboratorios Richmond', 'ACCIONES');
-INSERT INTO public.instruments VALUES (42, 'MOLI', 'Molinos Río de la Plata', 'ACCIONES');
-INSERT INTO public.instruments VALUES (43, 'VALO', 'BCO DE VALORES ACCIONES ORD.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (44, 'TGNO4', 'Transportadora de Gas del Norte', 'ACCIONES');
-INSERT INTO public.instruments VALUES (45, 'LOMA', 'Loma Negra S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (46, 'IRSA', 'IRSA Inversiones y Representaciones S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (47, 'PAMP', 'Pampa Holding S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (48, 'TGSU2', 'Transportadora de Gas del Sur', 'ACCIONES');
-INSERT INTO public.instruments VALUES (49, 'TXAR', 'Ternium Argentina S.A', 'ACCIONES');
-INSERT INTO public.instruments VALUES (50, 'YPFD', 'Y.P.F. S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (51, 'MORI', 'Morixe Hermanos S.A.C.I.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (52, 'INVJ', 'Inversora Juramento S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (53, 'POLL', 'Polledo S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (54, 'METR', 'MetroGAS S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (55, 'LONG', 'Longvie', 'ACCIONES');
-INSERT INTO public.instruments VALUES (56, 'SUPV', 'Grupo Supervielle S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (57, 'ROSE', 'Instituto Rosenbusch', 'ACCIONES');
-INSERT INTO public.instruments VALUES (58, 'OEST', 'Oeste Grupo Concesionario', 'ACCIONES');
-INSERT INTO public.instruments VALUES (59, 'COME', 'Sociedad Comercial Del Plata', 'ACCIONES');
-INSERT INTO public.instruments VALUES (60, 'CEPU', 'Central Puerto', 'ACCIONES');
-INSERT INTO public.instruments VALUES (61, 'ALUA', 'Aluar Aluminio Argentino S.A.I.C.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (62, 'CTIO', 'Consultatio S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (63, 'TRAN', 'Transener S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (64, 'HAVA', 'Havanna Holding', 'ACCIONES');
-INSERT INTO public.instruments VALUES (65, 'BYMA', 'Bolsas y Mercados Argentinos S.A.', 'ACCIONES');
-INSERT INTO public.instruments VALUES (66, 'ARS', 'PESOS', 'MONEDA');
-
-
---
--- Data for Name: marketdata; Type: TABLE DATA; Schema: public; Owner: -
---
-
-INSERT INTO public.marketdata VALUES (1, 12, NULL, NULL, NULL, 20.50, 20.50, '2023-07-13');
-INSERT INTO public.marketdata VALUES (2, 35, 342.50, 328.50, 337.50, 341.50, 335.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (3, 54, 232.00, 222.50, 232.00, 232.00, 229.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (4, 51, 36.55, 35.75, 35.90, 35.95, 35.90, '2023-07-13');
-INSERT INTO public.marketdata VALUES (5, 52, 105.00, 98.50, 105.00, 99.70, 103.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (6, 60, 365.95, 354.45, 358.00, 364.80, 353.45, '2023-07-13');
-INSERT INTO public.marketdata VALUES (7, 31, 1541.00, 1415.00, 1425.00, 1520.25, 1413.50, '2023-07-13');
-INSERT INTO public.marketdata VALUES (8, 40, 400.00, 395.00, 400.00, 397.50, 400.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (9, 4, 7044.00, 6561.00, 6940.00, 6621.50, 6659.50, '2023-07-13');
-INSERT INTO public.marketdata VALUES (10, 37, 409.00, 388.50, 407.00, 400.50, 408.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (11, 44, 669.50, 655.00, 668.00, 668.00, 658.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (12, 63, 378.00, 366.00, 367.50, 373.00, 367.50, '2023-07-13');
-INSERT INTO public.marketdata VALUES (13, 18, 525.00, 494.00, 500.00, 515.50, 498.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (14, 30, 6.80, 6.66, 6.70, 6.75, 6.64, '2023-07-13');
-INSERT INTO public.marketdata VALUES (15, 25, 195.00, 187.00, 188.00, 192.75, 187.50, '2023-07-13');
-INSERT INTO public.marketdata VALUES (16, 19, 295.00, 266.00, 273.00, 289.00, 273.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (17, 6, 256.00, 241.25, 245.00, 251.50, 247.25, '2023-07-13');
-INSERT INTO public.marketdata VALUES (18, 11, 86.50, 84.00, 86.50, 86.00, 86.40, '2023-07-13');
-INSERT INTO public.marketdata VALUES (19, 17, 54.00, 51.50, 53.00, 53.20, 52.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (20, 64, 1170.00, 1107.00, 1107.00, 1163.00, 1122.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (21, 21, 1660.00, 1562.00, 1567.00, 1656.00, 1562.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (22, 23, 348.00, 298.00, 307.00, 337.00, 304.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (23, 39, 460.00, 433.00, 450.00, 449.65, 447.75, '2023-07-13');
-INSERT INTO public.marketdata VALUES (24, 1, 268.00, 255.00, 268.00, 260.00, 264.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (25, 8, 38.50, 37.00, 38.15, 37.55, 38.15, '2023-07-13');
-INSERT INTO public.marketdata VALUES (26, 58, 220.50, 217.00, 217.00, 220.00, 217.50, '2023-07-13');
-INSERT INTO public.marketdata VALUES (27, 14, 617.00, 612.50, 617.00, 615.00, 612.50, '2023-07-13');
-INSERT INTO public.marketdata VALUES (28, 2, 1930.00, 1850.00, 1850.00, 1918.00, 1885.50, '2023-07-13');
-INSERT INTO public.marketdata VALUES (29, 29, 8.90, 8.72, 8.80, 8.79, 8.76, '2023-07-13');
-INSERT INTO public.marketdata VALUES (30, 36, 330.00, 311.00, 330.00, 323.00, 325.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (31, 27, 640.00, 615.00, 640.00, 623.00, 631.50, '2023-07-13');
-INSERT INTO public.marketdata VALUES (32, 62, 535.00, 495.00, 535.00, 519.00, 530.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (33, 15, 66.00, 64.00, 64.00, 66.00, 65.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (34, 13, 75.00, 75.00, 75.00, 75.00, 72.30, '2023-07-13');
-INSERT INTO public.marketdata VALUES (35, 26, 140.00, 132.00, 134.25, 138.00, 136.75, '2023-07-13');
-INSERT INTO public.marketdata VALUES (36, 24, 313.50, 302.00, 309.00, 310.00, 306.50, '2023-07-13');
-INSERT INTO public.marketdata VALUES (37, 32, 430.00, 408.30, 415.00, 429.45, 405.10, '2023-07-13');
-INSERT INTO public.marketdata VALUES (38, 22, 1076.90, 1031.00, 1039.00, 1062.20, 1020.90, '2023-07-13');
-INSERT INTO public.marketdata VALUES (39, 57, 21.40, 21.40, 21.40, 21.40, 21.40, '2023-07-13');
-INSERT INTO public.marketdata VALUES (40, 9, 315.00, 305.00, 313.00, 310.00, 313.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (41, 65, 368.00, 360.00, 363.50, 362.00, 360.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (42, 59, 43.20, 40.20, 40.45, 42.90, 39.90, '2023-07-13');
-INSERT INTO public.marketdata VALUES (43, 41, 546.00, 502.00, 508.50, 543.00, 500.50, '2023-07-13');
-INSERT INTO public.marketdata VALUES (44, 38, 163.50, 160.00, 162.25, 163.25, 162.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (45, 5, 9297.50, 9121.00, 9150.00, 9278.00, 9114.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (46, 61, 412.00, 391.00, 391.00, 412.00, 391.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (47, 55, 19.40, 18.70, 18.90, 19.05, 19.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (48, 42, 682.00, 646.00, 663.00, 657.50, 661.50, '2023-07-13');
-INSERT INTO public.marketdata VALUES (49, 20, 565.00, 540.00, 540.00, 565.00, 580.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (50, 34, 925.85, 875.00, 875.00, 917.75, 864.90, '2023-07-13');
-INSERT INTO public.marketdata VALUES (51, 46, 439.00, 421.00, 428.35, 431.90, 428.60, '2023-07-13');
-INSERT INTO public.marketdata VALUES (52, 45, 746.00, 701.80, 701.80, 734.35, 696.60, '2023-07-13');
-INSERT INTO public.marketdata VALUES (53, 47, 924.60, 896.00, 900.00, 921.80, 893.65, '2023-07-13');
-INSERT INTO public.marketdata VALUES (54, 56, 340.25, 311.60, 311.60, 338.85, 311.60, '2023-07-13');
-INSERT INTO public.marketdata VALUES (55, 7, 684.50, 665.70, 670.00, 672.65, 664.25, '2023-07-13');
-INSERT INTO public.marketdata VALUES (56, 48, 1440.00, 1403.65, 1410.50, 1437.55, 1394.20, '2023-07-13');
-INSERT INTO public.marketdata VALUES (57, 49, 458.00, 425.50, 428.00, 448.00, 428.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (58, 43, 110.00, 106.00, 107.00, 108.50, 106.50, '2023-07-13');
-INSERT INTO public.marketdata VALUES (59, 50, 8035.00, 7746.55, 7746.55, 7975.05, 7673.65, '2023-07-13');
-INSERT INTO public.marketdata VALUES (60, 16, 58.50, 56.00, 56.00, 56.10, 56.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (61, 53, NULL, NULL, NULL, 62.00, 62.00, '2023-07-13');
-INSERT INTO public.marketdata VALUES (62, 28, 35.00, 31.90, 33.00, 34.60, 33.15, '2023-07-13');
-INSERT INTO public.marketdata VALUES (63, 33, 421.30, 382.00, 394.00, 418.50, 381.65, '2023-07-13');
-INSERT INTO public.marketdata VALUES (64, 62, 523.00, 510.00, 520.00, 520.00, 519.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (65, 12, 20.50, 20.50, 20.50, 20.50, 20.50, '2023-07-14');
-INSERT INTO public.marketdata VALUES (66, 42, 669.00, 638.00, 657.50, 648.50, 657.50, '2023-07-14');
-INSERT INTO public.marketdata VALUES (67, 35, 340.00, 333.00, 336.00, 338.00, 341.50, '2023-07-14');
-INSERT INTO public.marketdata VALUES (68, 15, 93.00, 68.50, 69.00, 88.70, 66.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (69, 54, 233.00, 225.25, 232.00, 229.50, 232.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (70, 48, 1435.55, 1380.00, 1434.05, 1397.70, 1437.55, '2023-07-14');
-INSERT INTO public.marketdata VALUES (71, 51, 36.70, 34.60, 35.80, 36.00, 35.95, '2023-07-14');
-INSERT INTO public.marketdata VALUES (72, 13, 77.00, 74.80, 74.90, 77.00, 75.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (73, 52, 103.00, 98.00, 101.00, 102.00, 99.70, '2023-07-14');
-INSERT INTO public.marketdata VALUES (74, 20, 565.00, 565.00, 565.00, 565.00, 565.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (75, 60, 369.65, 356.25, 369.65, 363.00, 364.80, '2023-07-14');
-INSERT INTO public.marketdata VALUES (76, 26, 140.00, 134.25, 138.00, 138.00, 138.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (77, 31, 1560.00, 1470.00, 1525.00, 1502.80, 1520.25, '2023-07-14');
-INSERT INTO public.marketdata VALUES (78, 16, 57.00, 55.00, 55.00, 56.10, 56.10, '2023-07-14');
-INSERT INTO public.marketdata VALUES (79, 40, 395.00, 390.00, 395.00, 392.50, 397.50, '2023-07-14');
-INSERT INTO public.marketdata VALUES (80, 24, 322.50, 295.00, 295.00, 322.00, 310.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (81, 4, 6840.00, 6500.00, 6650.00, 6640.00, 6621.50, '2023-07-14');
-INSERT INTO public.marketdata VALUES (82, 34, 918.90, 870.00, 915.80, 885.80, 917.75, '2023-07-14');
-INSERT INTO public.marketdata VALUES (83, 37, 412.00, 388.00, 390.00, 400.50, 400.50, '2023-07-14');
-INSERT INTO public.marketdata VALUES (84, 32, 429.50, 410.00, 421.50, 424.25, 429.45, '2023-07-14');
-INSERT INTO public.marketdata VALUES (85, 44, 668.50, 640.50, 668.00, 650.00, 668.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (86, 49, 455.00, 426.00, 455.00, 429.00, 448.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (87, 63, 373.00, 360.00, 373.00, 369.50, 373.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (88, 22, 1062.00, 1002.00, 1047.00, 1038.10, 1047.17, '2023-07-14');
-INSERT INTO public.marketdata VALUES (89, 18, 516.00, 500.50, 515.00, 505.50, 515.50, '2023-07-14');
-INSERT INTO public.marketdata VALUES (90, 46, 431.80, 419.30, 431.80, 420.10, 431.90, '2023-07-14');
-INSERT INTO public.marketdata VALUES (91, 30, 7.02, 6.80, 6.80, 7.00, 6.75, '2023-07-14');
-INSERT INTO public.marketdata VALUES (92, 57, 21.40, 21.40, 21.40, 21.40, 21.40, '2023-07-14');
-INSERT INTO public.marketdata VALUES (93, 25, 196.00, 189.00, 190.00, 195.00, 192.75, '2023-07-14');
-INSERT INTO public.marketdata VALUES (94, 28, 35.50, 32.60, 35.40, 33.40, 34.60, '2023-07-14');
-INSERT INTO public.marketdata VALUES (95, 19, 291.00, 275.00, 291.00, 279.00, 289.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (96, 9, 317.00, 305.50, 312.00, 309.50, 310.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (97, 6, 257.00, 244.00, 252.50, 251.00, 251.50, '2023-07-14');
-INSERT INTO public.marketdata VALUES (98, 45, 744.45, 724.00, 730.00, 734.65, 734.35, '2023-07-14');
-INSERT INTO public.marketdata VALUES (99, 11, 86.90, 84.00, 86.90, 84.30, 86.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (100, 65, 370.50, 361.00, 363.00, 369.50, 362.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (101, 17, 58.00, 53.00, 53.50, 57.20, 53.20, '2023-07-14');
-INSERT INTO public.marketdata VALUES (102, 43, 110.00, 106.00, 106.50, 107.50, 108.50, '2023-07-14');
-INSERT INTO public.marketdata VALUES (103, 64, 1190.00, 1150.00, 1170.00, 1180.00, 1163.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (104, 59, 43.30, 41.75, 43.00, 42.75, 42.90, '2023-07-14');
-INSERT INTO public.marketdata VALUES (105, 21, 1680.00, 1580.00, 1659.50, 1660.00, 1656.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (106, 47, 927.70, 902.05, 920.15, 925.85, 921.80, '2023-07-14');
-INSERT INTO public.marketdata VALUES (107, 23, 350.00, 320.00, 338.50, 341.50, 337.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (108, 41, 579.00, 525.00, 546.00, 550.00, 543.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (109, 39, 455.00, 437.00, 455.00, 450.60, 449.65, '2023-07-14');
-INSERT INTO public.marketdata VALUES (110, 53, 60.00, 60.00, 60.00, 60.00, 62.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (111, 1, 278.00, 240.00, 260.00, 259.00, 260.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (112, 38, 167.00, 161.50, 165.00, 166.50, 163.25, '2023-07-14');
-INSERT INTO public.marketdata VALUES (113, 8, 39.00, 37.80, 38.80, 38.80, 37.55, '2023-07-14');
-INSERT INTO public.marketdata VALUES (114, 56, 335.55, 322.00, 335.15, 328.10, 338.85, '2023-07-14');
-INSERT INTO public.marketdata VALUES (115, 58, 220.25, 214.00, 219.50, 220.25, 220.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (116, 5, 9299.50, 8899.50, 9299.50, 9163.00, 9278.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (117, 14, 615.00, 614.50, 615.00, 615.00, 615.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (118, 50, 7901.25, 7752.00, 7901.25, 7837.50, 7975.05, '2023-07-14');
-INSERT INTO public.marketdata VALUES (119, 2, 1920.00, 1850.00, 1850.00, 1865.00, 1918.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (120, 61, 413.00, 395.00, 411.50, 410.00, 412.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (121, 29, 8.94, 8.80, 8.84, 8.93, 8.79, '2023-07-14');
-INSERT INTO public.marketdata VALUES (122, 7, 675.00, 647.00, 674.00, 651.85, 672.65, '2023-07-14');
-INSERT INTO public.marketdata VALUES (123, 36, 316.00, 311.00, 311.00, 315.00, 323.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (124, 55, 19.30, 18.75, 19.10, 19.00, 19.05, '2023-07-14');
-INSERT INTO public.marketdata VALUES (125, 27, 636.00, 620.00, 636.00, 624.00, 623.00, '2023-07-14');
-INSERT INTO public.marketdata VALUES (126, 33, 418.50, 407.20, 418.00, 414.70, 418.50, '2023-07-14');
-
-
---
--- Data for Name: orders; Type: TABLE DATA; Schema: public; Owner: -
---
-
-INSERT INTO public.orders VALUES (1, 66, 1, 1000000, 1.00, 'MARKET', 'CASH_IN', 'FILLED', '2023-07-12 12:11:20');
-INSERT INTO public.orders VALUES (2, 47, 1, 50, 930.00, 'MARKET', 'BUY', 'FILLED', '2023-07-12 12:31:20');
-INSERT INTO public.orders VALUES (3, 47, 1, 50, 920.00, 'LIMIT', 'BUY', 'CANCELLED', '2023-07-12 14:21:20');
-INSERT INTO public.orders VALUES (4, 47, 1, 10, 940.00, 'MARKET', 'SELL', 'FILLED', '2023-07-12 14:51:20');
-INSERT INTO public.orders VALUES (5, 45, 1, 50, 710.00, 'LIMIT', 'BUY', 'NEW', '2023-07-12 15:14:20');
-INSERT INTO public.orders VALUES (6, 47, 1, 100, 950.00, 'MARKET', 'SELL', 'REJECTED', '2023-07-12 16:11:20');
-INSERT INTO public.orders VALUES (7, 31, 1, 60, 1500.00, 'LIMIT', 'BUY', 'NEW', '2023-07-13 11:13:20');
-INSERT INTO public.orders VALUES (8, 66, 1, 100000, 1.00, 'MARKET', 'CASH_OUT', 'FILLED', '2023-07-13 12:31:20');
-INSERT INTO public.orders VALUES (9, 31, 1, 20, 1540.00, 'LIMIT', 'BUY', 'FILLED', '2023-07-13 12:51:20');
-INSERT INTO public.orders VALUES (10, 54, 1, 500, 250.00, 'MARKET', 'BUY', 'FILLED', '2023-07-13 14:11:20');
-INSERT INTO public.orders VALUES (11, 31, 1, 30, 1530.00, 'MARKET', 'SELL', 'FILLED', '2023-07-13 15:13:20');
-
-
---
--- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: -
---
-
-INSERT INTO public.users VALUES (1, 'emiliano@test.com', '10001');
-INSERT INTO public.users VALUES (2, 'jose@test.com', '10002');
-INSERT INTO public.users VALUES (3, 'francisco@test.com', '10003');
-INSERT INTO public.users VALUES (4, 'juan@test.com', '10004');
-
-
---
--- Name: instruments_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.instruments_id_seq', 66, true);
-
-
---
--- Name: marketdata_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.marketdata_id_seq', 126, true);
-
-
---
--- Name: orders_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.orders_id_seq', 11, true);
-
-
---
--- Name: users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.users_id_seq', 4, true);
-
-
---
--- Name: instruments instruments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.instruments
-    ADD CONSTRAINT instruments_pkey PRIMARY KEY (id);
-
-
---
--- Name: marketdata marketdata_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.marketdata
-    ADD CONSTRAINT marketdata_pkey PRIMARY KEY (id);
-
-
---
--- Name: orders orders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.orders
-    ADD CONSTRAINT orders_pkey PRIMARY KEY (id);
-
-
---
--- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.users
-    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
-
-
---
--- Name: marketdata marketdata_instrumentid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.marketdata
-    ADD CONSTRAINT marketdata_instrumentid_fkey FOREIGN KEY (instrumentid) REFERENCES public.instruments(id);
-
-
---
--- Name: orders orders_instrumentid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.orders
-    ADD CONSTRAINT orders_instrumentid_fkey FOREIGN KEY (instrumentid) REFERENCES public.instruments(id);
-
-
---
--- Name: orders orders_userid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.orders
-    ADD CONSTRAINT orders_userid_fkey FOREIGN KEY (userid) REFERENCES public.users(id);
-
-
---
--- PostgreSQL database dump complete
---
-
-
+INSERT INTO users (email,accountNumber) VALUES
+   ('emiliano@test.com','10001'),
+   ('jose@test.com','10002'),
+   ('francisco@test.com','10003'),
+   ('juan@test.com','10004');
+
+INSERT INTO instruments (ticker,"name","type") VALUES
+   ('DYCA','Dycasa S.A.','ACCIONES'),
+   ('CAPX','Capex S.A.','ACCIONES'),
+   ('PGR','Phoenix Global Resources','ACCIONES'),
+   ('MOLA','Molinos Agro S.A.','ACCIONES'),
+   ('MIRG','Mirgor','ACCIONES'),
+   ('PATA','Importadora y Exportadora de la Patagonia','ACCIONES'),
+   ('TECO2','Telecom','ACCIONES'),
+   ('FERR','Ferrum S.A.','ACCIONES'),
+   ('SAMI','S.A San Miguel','ACCIONES'),
+   ('IRCP','IRSA Propiedades Comerciales S.A.','ACCIONES');
+INSERT INTO instruments (ticker,"name","type") VALUES
+   ('GAMI','Boldt Gaming S.A.','ACCIONES'),
+   ('DOME','Domec','ACCIONES'),
+   ('INTR','Compañía Introductora de Buenos Aires S.A.','ACCIONES'),
+   ('MTR','Matba Rofex S.A.','ACCIONES'),
+   ('FIPL','Fiplasto','ACCIONES'),
+   ('GARO','Garovaglio Y Zorraquín','ACCIONES'),
+   ('SEMI','Molinos Juan Semino','ACCIONES'),
+   ('HARG','Holcim (Argentina) S.A.','ACCIONES'),
+   ('BPAT','Banco Patagonia','ACCIONES'),
+   ('RIGO','Rigolleau S.A.','ACCIONES');
+INSERT INTO instruments (ticker,"name","type") VALUES
+   ('CVH','Cablevision Holding','ACCIONES'),
+   ('BBAR','Banco Frances','ACCIONES'),
+   ('LEDE','Ledesma','ACCIONES'),
+   ('CELU','Celulosa Argentina S.A.','ACCIONES'),
+   ('CECO2','Central Costanera','ACCIONES'),
+   ('AGRO','Agrometal','ACCIONES'),
+   ('AUSO','Autopistas del Sol','ACCIONES'),
+   ('BHIP','Banco Hipotecario S.A.','ACCIONES'),
+   ('BOLT','Boldt S.A.','ACCIONES'),
+   ('CARC','Carboclor S.A.','ACCIONES');
+INSERT INTO instruments (ticker,"name","type") VALUES
+   ('BMA','Banco Macro S.A.','ACCIONES'),
+   ('CRES','Cresud S.A.','ACCIONES'),
+   ('EDN','Edenor S.A.','ACCIONES'),
+   ('GGAL','Grupo Financiero Galicia','ACCIONES'),
+   ('DGCU2','Distribuidora De Gas Cuyano S.A.','ACCIONES'),
+   ('GBAN','Gas Natural Ban S.A.','ACCIONES'),
+   ('CGPA2','Camuzzi Gas del Sur','ACCIONES'),
+   ('CADO','Carlos Casado','ACCIONES'),
+   ('GCLA','Grupo Clarin S.A.','ACCIONES'),
+   ('GRIM','Grimoldi','ACCIONES');
+INSERT INTO instruments (ticker,"name","type") VALUES
+   ('RICH','Laboratorios Richmond','ACCIONES'),
+   ('MOLI','Molinos Río de la Plata','ACCIONES'),
+   ('VALO','BCO DE VALORES ACCIONES ORD.','ACCIONES'),
+   ('TGNO4','Transportadora de Gas del Norte','ACCIONES'),
+   ('LOMA','Loma Negra S.A.','ACCIONES'),
+   ('IRSA','IRSA Inversiones y Representaciones S.A.','ACCIONES'),
+   ('PAMP','Pampa Holding S.A.','ACCIONES'),
+   ('TGSU2','Transportadora de Gas del Sur','ACCIONES'),
+   ('TXAR','Ternium Argentina S.A','ACCIONES'),
+   ('YPFD','Y.P.F. S.A.','ACCIONES');
+INSERT INTO instruments (ticker,"name","type") VALUES
+   ('MORI','Morixe Hermanos S.A.C.I.','ACCIONES'),
+   ('INVJ','Inversora Juramento S.A.','ACCIONES'),
+   ('POLL','Polledo S.A.','ACCIONES'),
+   ('METR','MetroGAS S.A.','ACCIONES'),
+   ('LONG','Longvie','ACCIONES'),
+   ('SUPV','Grupo Supervielle S.A.','ACCIONES'),
+   ('ROSE','Instituto Rosenbusch','ACCIONES'),
+   ('OEST','Oeste Grupo Concesionario','ACCIONES'),
+   ('COME','Sociedad Comercial Del Plata','ACCIONES'),
+   ('CEPU','Central Puerto','ACCIONES');
+INSERT INTO instruments (ticker,"name","type") VALUES
+   ('ALUA','Aluar Aluminio Argentino S.A.I.C.','ACCIONES'),
+   ('CTIO','Consultatio S.A.','ACCIONES'),
+   ('TRAN','Transener S.A.','ACCIONES'),
+   ('HAVA','Havanna Holding','ACCIONES'),
+   ('BYMA','Bolsas y Mercados Argentinos S.A.','ACCIONES');
+INSERT INTO instruments (ticker,"name","type") VALUES
+   ('ARS','PESOS','MONEDA');
+
+INSERT INTO "marketdata" (instrumentId,"date","open",high,low,"close",previousclose) VALUES
+   (12,'2023-07-13',NULL,NULL,NULL,20.50000000,20.50000000),
+   (35,'2023-07-13',337.50000000,342.50000000,328.50000000,341.50000000,335.00000000),
+   (54,'2023-07-13',232.00000000,232.00000000,222.50000000,232.00000000,229.00000000),
+   (51,'2023-07-13',35.90000000,36.55000000,35.75000000,35.95000000,35.90000000),
+   (52,'2023-07-13',105.00000000,105.00000000,98.50000000,99.70000000,103.00000000),
+   (60,'2023-07-13',358.00000000,365.95000000,354.45000000,364.80000000,353.45000000),
+   (31,'2023-07-13',1425.00000000,1541.00000000,1415.00000000,1520.25000000,1413.50000000),
+   (40,'2023-07-13',400.00000000,400.00000000,395.00000000,397.50000000,400.00000000),
+   (4,'2023-07-13',6940.00000000,7044.00000000,6561.00000000,6621.50000000,6659.50000000),
+   (37,'2023-07-13',407.00000000,409.00000000,388.50000000,400.50000000,408.00000000);
+INSERT INTO "marketdata" (instrumentId,"date","open",high,low,"close",previousclose) VALUES
+   (44,'2023-07-13',668.00000000,669.50000000,655.00000000,668.00000000,658.00000000),
+   (63,'2023-07-13',367.50000000,378.00000000,366.00000000,373.00000000,367.50000000),
+   (18,'2023-07-13',500.00000000,525.00000000,494.00000000,515.50000000,498.00000000),
+   (30,'2023-07-13',6.70000000,6.80000000,6.66000000,6.75000000,6.64000000),
+   (25,'2023-07-13',188.00000000,195.00000000,187.00000000,192.75000000,187.50000000),
+   (19,'2023-07-13',273.00000000,295.00000000,266.00000000,289.00000000,273.00000000),
+   (6,'2023-07-13',245.00000000,256.00000000,241.25000000,251.50000000,247.25000000),
+   (11,'2023-07-13',86.50000000,86.50000000,84.00000000,86.00000000,86.40000000),
+   (17,'2023-07-13',53.00000000,54.00000000,51.50000000,53.20000000,52.00000000),
+   (64,'2023-07-13',1107.00000000,1170.00000000,1107.00000000,1163.00000000,1122.00000000);
+INSERT INTO "marketdata" (instrumentId,"date","open",high,low,"close",previousclose) VALUES
+   (21,'2023-07-13',1567.00000000,1660.00000000,1562.00000000,1656.00000000,1562.00000000),
+   (23,'2023-07-13',307.00000000,348.00000000,298.00000000,337.00000000,304.00000000),
+   (39,'2023-07-13',450.00000000,460.00000000,433.00000000,449.65000000,447.75000000),
+   (1,'2023-07-13',268.00000000,268.00000000,255.00000000,260.00000000,264.00000000),
+   (8,'2023-07-13',38.15000000,38.50000000,37.00000000,37.55000000,38.15000000),
+   (58,'2023-07-13',217.00000000,220.50000000,217.00000000,220.00000000,217.50000000),
+   (14,'2023-07-13',617.00000000,617.00000000,612.50000000,615.00000000,612.50000000),
+   (2,'2023-07-13',1850.00000000,1930.00000000,1850.00000000,1918.00000000,1885.50000000),
+   (29,'2023-07-13',8.80000000,8.90000000,8.72000000,8.79000000,8.76000000),
+   (36,'2023-07-13',330.00000000,330.00000000,311.00000000,323.00000000,325.00000000);
+INSERT INTO "marketdata" (instrumentId,"date","open",high,low,"close",previousclose) VALUES
+   (27,'2023-07-13',640.00000000,640.00000000,615.00000000,623.00000000,631.50000000),
+   (62,'2023-07-13',535.00000000,535.00000000,495.00000000,519.00000000,530.00000000),
+   (15,'2023-07-13',64.00000000,66.00000000,64.00000000,66.00000000,65.00000000),
+   (13,'2023-07-13',75.00000000,75.00000000,75.00000000,75.00000000,72.30000000),
+   (26,'2023-07-13',134.25000000,140.00000000,132.00000000,138.00000000,136.75000000),
+   (24,'2023-07-13',309.00000000,313.50000000,302.00000000,310.00000000,306.50000000),
+   (32,'2023-07-13',415.00000000,430.00000000,408.30000000,429.45000000,405.10000000),
+   (22,'2023-07-13',1039.00000000,1076.90000000,1031.00000000,1062.20000000,1020.90000000),
+   (57,'2023-07-13',21.40000000,21.40000000,21.40000000,21.40000000,21.40000000),
+   (9,'2023-07-13',313.00000000,315.00000000,305.00000000,310.00000000,313.00000000);
+INSERT INTO "marketdata" (instrumentId,"date","open",high,low,"close",previousclose) VALUES
+   (65,'2023-07-13',363.50000000,368.00000000,360.00000000,362.00000000,360.00000000),
+   (59,'2023-07-13',40.45000000,43.20000000,40.20000000,42.90000000,39.90000000),
+   (41,'2023-07-13',508.50000000,546.00000000,502.00000000,543.00000000,500.50000000),
+   (38,'2023-07-13',162.25000000,163.50000000,160.00000000,163.25000000,162.00000000),
+   (5,'2023-07-13',9150.00000000,9297.50000000,9121.00000000,9278.00000000,9114.00000000),
+   (61,'2023-07-13',391.00000000,412.00000000,391.00000000,412.00000000,391.00000000),
+   (55,'2023-07-13',18.90000000,19.40000000,18.70000000,19.05000000,19.00000000),
+   (42,'2023-07-13',663.00000000,682.00000000,646.00000000,657.50000000,661.50000000),
+   (20,'2023-07-13',540.00000000,565.00000000,540.00000000,565.00000000,580.00000000),
+   (34,'2023-07-13',875.00000000,925.85000000,875.00000000,917.75000000,864.90000000);
+INSERT INTO "marketdata" (instrumentId,"date","open",high,low,"close",previousclose) VALUES
+   (46,'2023-07-13',428.35000000,439.00000000,421.00000000,431.90000000,428.60000000),
+   (45,'2023-07-13',701.80000000,746.00000000,701.80000000,734.35000000,696.60000000),
+   (47,'2023-07-13',900.00000000,924.60000000,896.00000000,921.80000000,893.65000000),
+   (56,'2023-07-13',311.60000000,340.25000000,311.60000000,338.85000000,311.60000000),
+   (7,'2023-07-13',670.00000000,684.50000000,665.70000000,672.65000000,664.25000000),
+   (48,'2023-07-13',1410.50000000,1440.00000000,1403.65000000,1437.55000000,1394.20000000),
+   (49,'2023-07-13',428.00000000,458.00000000,425.50000000,448.00000000,428.00000000),
+   (43,'2023-07-13',107.00000000,110.00000000,106.00000000,108.50000000,106.50000000),
+   (50,'2023-07-13',7746.55000000,8035.00000000,7746.55000000,7975.05000000,7673.65000000),
+   (16,'2023-07-13',56.00000000,58.50000000,56.00000000,56.10000000,56.00000000);
+INSERT INTO "marketdata" (instrumentId,"date","open",high,low,"close",previousclose) VALUES
+   (53,'2023-07-13',NULL,NULL,NULL,62.00000000,62.00000000),
+   (28,'2023-07-13',33.00000000,35.00000000,31.90000000,34.60000000,33.15000000),
+   (33,'2023-07-13',394.00000000,421.30000000,382.00000000,418.50000000,381.65000000),
+   (62,'2023-07-14',520.00000000,523.00000000,510.00000000,520.00000000,519.00000000),
+   (12,'2023-07-14',20.50000000,20.50000000,20.50000000,20.50000000,20.50000000),
+   (42,'2023-07-14',657.50000000,669.00000000,638.00000000,648.50000000,657.50000000),
+   (35,'2023-07-14',336.00000000,340.00000000,333.00000000,338.00000000,341.50000000),
+   (15,'2023-07-14',69.00000000,93.00000000,68.50000000,88.70000000,66.00000000),
+   (54,'2023-07-14',232.00000000,233.00000000,225.25000000,229.50000000,232.00000000),
+   (48,'2023-07-14',1434.05000000,1435.55000000,1380.00000000,1397.70000000,1437.55000000);
+INSERT INTO "marketdata" (instrumentId,"date","open",high,low,"close",previousclose) VALUES
+   (51,'2023-07-14',35.80000000,36.70000000,34.60000000,36.00000000,35.95000000),
+   (13,'2023-07-14',74.90000000,77.00000000,74.80000000,77.00000000,75.00000000),
+   (52,'2023-07-14',101.00000000,103.00000000,98.00000000,102.00000000,99.70000000),
+   (20,'2023-07-14',565.00000000,565.00000000,565.00000000,565.00000000,565.00000000),
+   (60,'2023-07-14',369.65000000,369.65000000,356.25000000,363.00000000,364.80000000),
+   (26,'2023-07-14',138.00000000,140.00000000,134.25000000,138.00000000,138.00000000),
+   (31,'2023-07-14',1525.00000000,1560.00000000,1470.00000000,1502.80000000,1520.25000000),
+   (16,'2023-07-14',55.00000000,57.00000000,55.00000000,56.10000000,56.10000000),
+   (40,'2023-07-14',395.00000000,395.00000000,390.00000000,392.50000000,397.50000000),
+   (24,'2023-07-14',295.00000000,322.50000000,295.00000000,322.00000000,310.00000000);
+INSERT INTO "marketdata" (instrumentId,"date","open",high,low,"close",previousclose) VALUES
+   (4,'2023-07-14',6650.00000000,6840.00000000,6500.00000000,6640.00000000,6621.50000000),
+   (34,'2023-07-14',915.80000000,918.90000000,870.00000000,885.80000000,917.75000000),
+   (37,'2023-07-14',390.00000000,412.00000000,388.00000000,400.50000000,400.50000000),
+   (32,'2023-07-14',421.50000000,429.50000000,410.00000000,424.25000000,429.45000000),
+   (44,'2023-07-14',668.00000000,668.50000000,640.50000000,650.00000000,668.00000000),
+   (49,'2023-07-14',455.00000000,455.00000000,426.00000000,429.00000000,448.00000000),
+   (63,'2023-07-14',373.00000000,373.00000000,360.00000000,369.50000000,373.00000000),
+   (22,'2023-07-14',1047.00000000,1062.00000000,1002.00000000,1038.10000000,1047.16600000),
+   (18,'2023-07-14',515.00000000,516.00000000,500.50000000,505.50000000,515.50000000),
+   (46,'2023-07-14',431.80000000,431.80000000,419.30000000,420.10000000,431.90000000);
+INSERT INTO "marketdata" (instrumentId,"date","open",high,low,"close",previousclose) VALUES
+   (30,'2023-07-14',6.80000000,7.02000000,6.80000000,7.00000000,6.75000000),
+   (57,'2023-07-14',21.40000000,21.40000000,21.40000000,21.40000000,21.40000000),
+   (25,'2023-07-14',190.00000000,196.00000000,189.00000000,195.00000000,192.75000000),
+   (28,'2023-07-14',35.40000000,35.50000000,32.60000000,33.40000000,34.60000000),
+   (19,'2023-07-14',291.00000000,291.00000000,275.00000000,279.00000000,289.00000000),
+   (9,'2023-07-14',312.00000000,317.00000000,305.50000000,309.50000000,310.00000000),
+   (6,'2023-07-14',252.50000000,257.00000000,244.00000000,251.00000000,251.50000000),
+   (45,'2023-07-14',730.00000000,744.45000000,724.00000000,734.65000000,734.35000000),
+   (11,'2023-07-14',86.90000000,86.90000000,84.00000000,84.30000000,86.00000000),
+   (65,'2023-07-14',363.00000000,370.50000000,361.00000000,369.50000000,362.00000000);
+INSERT INTO "marketdata" (instrumentId,"date","open",high,low,"close",previousclose) VALUES
+   (17,'2023-07-14',53.50000000,58.00000000,53.00000000,57.20000000,53.20000000),
+   (43,'2023-07-14',106.50000000,110.00000000,106.00000000,107.50000000,108.50000000),
+   (64,'2023-07-14',1170.00000000,1190.00000000,1150.00000000,1180.00000000,1163.00000000),
+   (59,'2023-07-14',43.00000000,43.30000000,41.75000000,42.75000000,42.90000000),
+   (21,'2023-07-14',1659.50000000,1680.00000000,1580.00000000,1660.00000000,1656.00000000),
+   (47,'2023-07-14',920.15000000,927.70000000,902.05000000,925.85000000,921.80000000),
+   (23,'2023-07-14',338.50000000,350.00000000,320.00000000,341.50000000,337.00000000),
+   (41,'2023-07-14',546.00000000,579.00000000,525.00000000,550.00000000,543.00000000),
+   (39,'2023-07-14',455.00000000,455.00000000,437.00000000,450.60000000,449.65000000),
+   (53,'2023-07-14',60.00000000,60.00000000,60.00000000,60.00000000,62.00000000);
+INSERT INTO "marketdata" (instrumentId,"date","open",high,low,"close",previousclose) VALUES
+   (1,'2023-07-14',260.00000000,278.00000000,240.00000000,259.00000000,260.00000000),
+   (38,'2023-07-14',165.00000000,167.00000000,161.50000000,166.50000000,163.25000000),
+   (8,'2023-07-14',38.80000000,39.00000000,37.80000000,38.80000000,37.55000000),
+   (56,'2023-07-14',335.15000000,335.55000000,322.00000000,328.10000000,338.85000000),
+   (58,'2023-07-14',219.50000000,220.25000000,214.00000000,220.25000000,220.00000000),
+   (5,'2023-07-14',9299.50000000,9299.50000000,8899.50000000,9163.00000000,9278.00000000),
+   (14,'2023-07-14',615.00000000,615.00000000,614.50000000,615.00000000,615.00000000),
+   (50,'2023-07-14',7901.25000000,7901.25000000,7752.00000000,7837.50000000,7975.05000000),
+   (2,'2023-07-14',1850.00000000,1920.00000000,1850.00000000,1865.00000000,1918.00000000),
+   (61,'2023-07-14',411.50000000,413.00000000,395.00000000,410.00000000,412.00000000);
+INSERT INTO "marketdata" (instrumentId,"date","open",high,low,"close",previousclose) VALUES
+   (29,'2023-07-14',8.84000000,8.94000000,8.80000000,8.93000000,8.79000000),
+   (7,'2023-07-14',674.00000000,675.00000000,647.00000000,651.85000000,672.65000000),
+   (36,'2023-07-14',311.00000000,316.00000000,311.00000000,315.00000000,323.00000000),
+   (55,'2023-07-14',19.10000000,19.30000000,18.75000000,19.00000000,19.05000000),
+   (27,'2023-07-14',636.00000000,636.00000000,620.00000000,624.00000000,623.00000000),
+   (33,'2023-07-14',418.00000000,418.50000000,407.20000000,414.70000000,418.50000000);
+
+INSERT INTO "orders" (instrumentId,userId,size,price,side,status,type,datetime) VALUES
+  (66,1,1000000,1,'CASH_IN','FILLED','MARKET','2023-07-12 12:11:20'),
+  (47,1,50,930,'BUY','FILLED','MARKET','2023-07-12 12:31:20'),
+  (47,1,50,920,'BUY','CANCELLED','LIMIT','2023-07-12 14:21:20'),
+  (47,1,10,940,'SELL','FILLED','MARKET','2023-07-12 14:51:20'),
+  (45,1,50,710,'BUY','NEW','LIMIT','2023-07-12 15:14:20'),
+  (47,1,100,950,'SELL','REJECTED','MARKET','2023-07-12 16:11:20'),
+  (31,1,60,1500,'BUY','NEW','LIMIT','2023-07-13 11:13:20'),
+  (66,1,100000,1,'CASH_OUT','FILLED','MARKET','2023-07-13 12:31:20'),
+  (31,1,20,1540,'BUY','FILLED','LIMIT','2023-07-13 12:51:20'),
+  (54,1,500,250,'BUY','FILLED','MARKET','2023-07-13 14:11:20'),
+  (31,1,30,1530,'SELL','FILLED','MARKET','2023-07-13 15:13:20');
