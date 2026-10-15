@@ -1,10 +1,11 @@
-import { Controller, Get, Param, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { ParseIdPipe } from '../common/parse-id.pipe';
 import { ProblemDto } from '../common/problem.dto';
 import { PortfolioDto } from './portfolio.dto';
 import { PortfolioService } from './portfolio.service';
@@ -19,7 +20,7 @@ export class PortfolioController {
   @ApiOkResponse({ type: PortfolioDto })
   @ApiBadRequestResponse({ type: ProblemDto })
   @ApiNotFoundResponse({ type: ProblemDto, description: 'User not found' })
-  get(@Param('userId', ParseIntPipe) userId: number) {
+  get(@Param('userId', ParseIdPipe) userId: number) {
     return this.portfolio.getPortfolio(userId);
   }
 }

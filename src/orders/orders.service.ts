@@ -6,9 +6,10 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import Decimal from 'decimal.js';
+import { createHash } from 'node:crypto';
 import { Kysely, Selectable, sql } from 'kysely';
 import { ars, D, maxShares } from '../common/money';
-import { DB, InjectDb, OrderStatus } from '../db/database';
+import { DB, INT4_MAX, InjectDb, OrderStatus } from '../db/database';
 import { computeHoldings, latestPrices, loadLedger } from '../portfolio/ledger';
 import { CreateOrderDto } from './create-order.dto';
 import { OrderDto } from './order.dto';
@@ -43,6 +44,7 @@ export class OrdersService {
    */
   async create(dto: CreateOrderDto, idempotencyKey?: string) {
     assertShape(dto);
+    const requestHash = idempotencyKey ? hashRequest(dto) : null;
 
     return this.db.transaction().execute(async (trx) => {
       // Serialize orders per user: two concurrent orders can't both pass the
@@ -59,9 +61,15 @@ export class OrdersService {
           .where('userid', '=', dto.userId)
           .where('idempotencykey', '=', idempotencyKey)
           .executeTakeFirst();
-        // ponytail: returns the original order without comparing payloads;
-        // storing a request hash would allow a 422 on key reuse with a different body.
-        if (existing) return { order: existing, replayed: true };
+        if (existing) {
+          // Same key, different request: almost surely a client bug. Replaying the
+          // old order would hide it (draft-ietf-httpapi-idempotency-key-header → 422).
+          if (existing.idempotencyhash !== requestHash)
+            throw new UnprocessableEntityException(
+              'Idempotency-Key was already used with a different request',
+            );
+          return { order: existing, replayed: true };
+        }
       }
 
       const [user, instrument] = await Promise.all([
@@ -123,6 +131,7 @@ export class OrdersService {
           price: price.toFixed(2),
           status,
           idempotencykey: idempotencyKey ?? null,
+          idempotencyhash: requestHash,
         })
         .returningAll()
         .executeTakeFirstOrThrow();
@@ -205,5 +214,28 @@ function sizeFor(dto: CreateOrderDto, price: Decimal, isCash: boolean) {
     throw new UnprocessableEntityException(
       `amount ${ars(amount)} does not cover one share at ${ars(price)}`,
     );
+  if (size > INT4_MAX)
+    // orders.size is an integer column.
+    throw new UnprocessableEntityException(
+      `amount ${ars(amount)} buys more than ${INT4_MAX} units at ${ars(price)}`,
+    );
   return size;
+}
+
+/**
+ * Fingerprint of the validated request. Field order is fixed and money is normalized
+ * to 2 decimals, so `930.5`, `"930.5"` and `"930.50"` are the same request.
+ */
+function hashRequest(dto: CreateOrderDto) {
+  const money = (v?: string) => (v === undefined ? null : new D(v).toFixed(2));
+  const canonical = [
+    dto.userId,
+    dto.instrumentId,
+    dto.side,
+    dto.type,
+    dto.size ?? null,
+    money(dto.amount),
+    money(dto.price),
+  ];
+  return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
 }

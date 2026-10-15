@@ -1,7 +1,7 @@
 import { Controller, Get, Header, Query } from '@nestjs/common';
 import { ApiBadRequestResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsString, Length } from 'class-validator';
+import { IsString, Length, Matches } from 'class-validator';
 import { ProblemDto } from '../common/problem.dto';
 import { InstrumentDto } from './instrument.dto';
 import { InstrumentsService } from './instruments.service';
@@ -13,6 +13,8 @@ export class SearchInstrumentsQuery {
   )
   @IsString()
   @Length(1, 50)
+  // Postgres text can't hold NUL; reject it here instead of a 500 from the driver.
+  @Matches(/^[^\0]*$/, { message: 'q must not contain NUL characters' })
   q!: string;
 }
 

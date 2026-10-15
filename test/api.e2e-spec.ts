@@ -16,6 +16,7 @@ import { configureApp } from '../src/app.setup';
 const ARS = 66;
 const PAMP = 47; // latest close 925.85
 const PGR = 3; // no market data
+const CHEAP = 30; // CARC, latest close 7.00
 
 let container: StartedPostgreSqlContainer;
 let app: INestApplication<App>;
@@ -251,6 +252,48 @@ describe('POST /orders', () => {
     expect(await storedOrders(userId)).toHaveLength(2); // CASH_IN + one BUY
   });
 
+  it('refuses an Idempotency-Key reused with a different request', async () => {
+    const userId = await userWithCash(10_000);
+    const key = randomUUID();
+    await postOrder(buy(userId, { size: 1 }), key).expect(201);
+
+    await postOrder(buy(userId, { size: 2 }), key).expect(422);
+
+    expect(await storedOrders(userId)).toHaveLength(2);
+  });
+
+  it('treats a price sent as number or string as the same request', async () => {
+    const userId = await userWithCash(10_000);
+    const key = randomUUID();
+    const limit = { type: 'LIMIT', size: 1 };
+    await postOrder(buy(userId, { ...limit, price: '900.50' }), key).expect(
+      201,
+    );
+
+    await postOrder(buy(userId, { ...limit, price: 900.5 }), key).expect(200);
+    await postOrder(buy(userId, { ...limit, price: '900.5' }), key).expect(200);
+  });
+
+  it('stamps datetime when the order executes, not when it started waiting', async () => {
+    const userId = await userWithCash(10_000);
+
+    // Hold the user's order lock, so the request waits inside its transaction.
+    await pg.query('SELECT pg_advisory_lock(1, $1)', [userId]);
+    const pending = Promise.resolve(postOrder(buy(userId, { size: 1 })));
+    await waitForBlockedQueries(1);
+    const { rows } = await pg.query<{ releasedAt: Date }>(
+      `SELECT clock_timestamp() AT TIME ZONE 'utc' AS "releasedAt"`,
+    );
+    await pg.query('SELECT pg_advisory_unlock(1, $1)', [userId]);
+    const { body } = await pending;
+
+    // With now() (transaction start) it would be stamped before the release,
+    // and the ledger could replay it before an order that actually ran first.
+    expect(new Date(body.datetime as string).getTime()).toBeGreaterThanOrEqual(
+      rows[0].releasedAt.getTime(),
+    );
+  });
+
   describe('invalid requests fail with problem+json and store nothing', () => {
     it.each([
       ['size and amount', { size: 1, amount: '1' }, 400],
@@ -266,6 +309,17 @@ describe('POST /orders', () => {
       ['BUY of the cash instrument', { instrumentId: ARS, size: 1 }, 400],
       ['unknown instrument', { instrumentId: 99_999, size: 1 }, 404],
       ['MARKET without market data', { instrumentId: PGR, size: 1 }, 422],
+      [
+        'instrumentId above int4',
+        { instrumentId: 3_000_000_000, size: 1 },
+        400,
+      ],
+      // 9999999999999 / 7.00 (CAPX... any cheap close) > int4 shares
+      [
+        'amount that buys more than int4 shares',
+        { instrumentId: CHEAP, amount: '9999999999999' },
+        422,
+      ],
     ])('%s → %i', async (_, fields, status) => {
       const userId = await userWithCash(10_000);
 
@@ -278,6 +332,14 @@ describe('POST /orders', () => {
 
     it('unknown user → 404', async () => {
       await postOrder(buy(99_999, { size: 1 })).expect(404);
+    });
+
+    it('userId above int4 → 400', async () => {
+      await postOrder(buy(3_000_000_000, { size: 1 })).expect(400);
+    });
+
+    it('body above the size limit → 413', async () => {
+      await postOrder({ padding: 'x'.repeat(200_000) }).expect(413);
     });
   });
 });
@@ -328,6 +390,12 @@ describe('GET /users/:id/portfolio', () => {
 });
 
 describe('GET /instruments', () => {
+  it('rejects a NUL byte with 400, and never lets an error be cached', async () => {
+    const res = await http().get('/instruments?q=a%00b').expect(400);
+
+    expect(res.headers['cache-control']).toBe('no-store');
+  });
+
   it('finds by name, case-insensitively, and never returns cash', async () => {
     const pampa = await http().get('/instruments?q=pampa').expect(200);
     const pesos = await http().get('/instruments?q=pesos').expect(200);

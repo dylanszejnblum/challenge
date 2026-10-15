@@ -20,6 +20,9 @@ types.setTypeParser(
 // Keep `date` as 'YYYY-MM-DD'; a JS Date would shift it by the process offset.
 types.setTypeParser(types.builtins.DATE, (v) => v);
 
+/** Max value of a Postgres `integer` (ids, orders.size). Validated at the edge so it never reaches the DB as an overflow. */
+export const INT4_MAX = 2_147_483_647;
+
 // Mirrors the CHECK constraints in db/migrations/001_integrity_and_indexes.sql.
 export const ORDER_SIDES = ['BUY', 'SELL', 'CASH_IN', 'CASH_OUT'] as const;
 export const ORDER_TYPES = ['MARKET', 'LIMIT'] as const;
@@ -59,6 +62,7 @@ export interface DB {
     status: OrderStatus;
     datetime: ColumnType<Date, never, never>;
     idempotencykey: string | null;
+    idempotencyhash: string | null;
   };
   marketdata: {
     id: Generated<number>;
@@ -89,8 +93,9 @@ const UNAVAILABLE_CODES = new Set([
 
 /**
  * True when the error means "the database can't serve us right now", as opposed
- * to a bug or a bad query. Those become 503 + Retry-After: the request is safe
- * to retry (the transaction rolled back, and POST /orders has Idempotency-Key).
+ * to a bug or a bad query. Those become 503 + Retry-After. Usually the transaction
+ * rolled back, but if the connection drops during COMMIT the outcome is unknown:
+ * an order must be retried with the same Idempotency-Key, which makes it safe.
  */
 export function isDbUnavailable(err: unknown): boolean {
   // Duck-typed: errors from node's net/dns may come from another realm, where

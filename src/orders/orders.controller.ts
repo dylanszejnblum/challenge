@@ -6,7 +6,6 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseIntPipe,
   Post,
   Res,
 } from '@nestjs/common';
@@ -20,6 +19,7 @@ import {
   ApiTags,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import { ParseIdPipe } from '../common/parse-id.pipe';
 import { ProblemDto } from '../common/problem.dto';
 import type { Response } from 'express';
 import { CreateOrderDto } from './create-order.dto';
@@ -58,7 +58,8 @@ export class OrdersController {
   })
   @ApiUnprocessableEntityResponse({
     type: ProblemDto,
-    description: 'MARKET order without market data, or amount below one share',
+    description:
+      'MARKET order without market data, amount outside the tradable range, or Idempotency-Key reused with a different request',
   })
   async create(
     @Body() dto: CreateOrderDto,
@@ -80,7 +81,7 @@ export class OrdersController {
   @ApiOkResponse({ type: OrderDto, description: 'The order, now CANCELLED' })
   @ApiNotFoundResponse({ type: ProblemDto })
   @ApiConflictResponse({ type: ProblemDto, description: 'Order is not NEW' })
-  async cancel(@Param('id', ParseIntPipe) id: number) {
+  async cancel(@Param('id', ParseIdPipe) id: number) {
     return toOrderResponse(await this.orders.cancel(id));
   }
 }

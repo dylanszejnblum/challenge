@@ -12,15 +12,19 @@ ALTER TABLE orders
   ALTER COLUMN side SET NOT NULL,
   ALTER COLUMN status SET NOT NULL,
   ALTER COLUMN datetime SET NOT NULL,
-  -- Stored in UTC; the column type has no time zone.
-  ALTER COLUMN datetime SET DEFAULT (now() AT TIME ZONE 'utc'),
+  -- Stored in UTC; the column type has no time zone. clock_timestamp(), not now():
+  -- now() is the transaction start, before waiting on the user's lock, so an order
+  -- that waited could get an earlier datetime than the one that executed first.
+  ALTER COLUMN datetime SET DEFAULT (clock_timestamp() AT TIME ZONE 'utc'),
   ADD CONSTRAINT orders_size_positive CHECK (size > 0),
   ADD CONSTRAINT orders_price_positive CHECK (price > 0),
   ADD CONSTRAINT orders_side_valid CHECK (side IN ('BUY', 'SELL', 'CASH_IN', 'CASH_OUT')),
   ADD CONSTRAINT orders_type_valid CHECK (type IN ('MARKET', 'LIMIT')),
   ADD CONSTRAINT orders_status_valid CHECK (status IN ('NEW', 'FILLED', 'REJECTED', 'CANCELLED')),
   -- Client-supplied Idempotency-Key: a retried POST /orders returns the original order.
-  ADD COLUMN idempotencykey varchar(64);
+  ADD COLUMN idempotencykey varchar(64),
+  -- sha256 of the request, to refuse a key reused with a different body.
+  ADD COLUMN idempotencyhash char(64);
 
 CREATE UNIQUE INDEX orders_userid_idempotencykey_key
   ON orders (userid, idempotencykey) WHERE idempotencykey IS NOT NULL;

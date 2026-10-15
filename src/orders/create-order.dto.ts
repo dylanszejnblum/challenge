@@ -9,6 +9,7 @@ import {
   Max,
 } from 'class-validator';
 import {
+  INT4_MAX,
   ORDER_SIDES,
   ORDER_TYPES,
   type OrderSide,
@@ -23,15 +24,16 @@ const toDecimalString = ({ value }: { value: unknown }) =>
 /** Mirrors orders.price numeric(10,2): rejected instead of silently rounded by Postgres. */
 const PRICE = /^\d{1,8}(\.\d{1,2})?$/;
 const AMOUNT = /^\d{1,13}(\.\d{1,2})?$/;
-const INT4_MAX = 2_147_483_647; // orders.size is integer
 
 export class CreateOrderDto {
   @IsInt()
   @IsPositive()
+  @Max(INT4_MAX)
   userId!: number;
 
   @IsInt()
   @IsPositive()
+  @Max(INT4_MAX)
   instrumentId!: number;
 
   @ApiProperty({ enum: ORDER_SIDES })

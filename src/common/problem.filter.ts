@@ -9,6 +9,21 @@ import type { Request, Response } from 'express';
 import { STATUS_CODES } from 'node:http';
 import { isDbUnavailable } from '../db/database';
 
+/**
+ * Errors raised by Express middleware before Nest sees the request (body-parser:
+ * 413 payload too large, 415, ...) follow http-errors: `status` + `expose`.
+ */
+function httpError(err: unknown) {
+  if (typeof err !== 'object' || err === null) return undefined;
+  const { status, expose, message } = err as Record<string, unknown>;
+  return typeof status === 'number' &&
+    status >= 400 &&
+    status < 500 &&
+    expose === true
+    ? { status, message: String(message) }
+    : undefined;
+}
+
 /** Every error leaves the API as RFC 9457 `application/problem+json`. */
 @Catch()
 export class ProblemFilter implements ExceptionFilter {
@@ -18,9 +33,15 @@ export class ProblemFilter implements ExceptionFilter {
     const req = host.switchToHttp().getRequest<Request>();
     const res = host.switchToHttp().getResponse<Response>();
     const dbDown = isDbUnavailable(err);
+    const clientError = httpError(err);
     const status =
-      err instanceof HttpException ? err.getStatus() : dbDown ? 503 : 500;
+      err instanceof HttpException
+        ? err.getStatus()
+        : (clientError?.status ?? (dbDown ? 503 : 500));
     if (status >= 500) this.logger.error(err);
+    // Overrides any success Cache-Control set by the handler (GET /instruments):
+    // an error, and above all an outage, must never be served from a cache.
+    res.setHeader('Cache-Control', 'no-store');
     if (dbDown) res.setHeader('Retry-After', '5');
 
     const body = err instanceof HttpException ? err.getResponse() : undefined;
@@ -29,9 +50,11 @@ export class ProblemFilter implements ExceptionFilter {
         ? body.message
         : err instanceof HttpException
           ? err.message
-          : dbDown
-            ? 'Database unavailable, retry later'
-            : 'Internal server error';
+          : clientError
+            ? clientError.message
+            : dbDown
+              ? 'Database unavailable, retry later'
+              : 'Internal server error';
     const errors = Array.isArray(message) ? (message as string[]) : undefined;
 
     res
