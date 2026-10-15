@@ -67,8 +67,9 @@ Qué devuelve según el caso:
 | `LIMIT` aceptada | 201, `NEW` | Sí |
 | No alcanzan los pesos o las acciones | 201, `REJECTED` | Sí, como pide el enunciado |
 | Body inválido, usuario o instrumento que no existe | 400 / 404 | No |
-| `MARKET` sobre un activo sin precio, o un monto que no alcanza para una acción | 422 | No |
-| La base no está disponible | 503 + `Retry-After` | No (la transacción se revierte) |
+| `MARKET` sobre un activo sin precio, un monto que no alcanza para una acción (o que compraría más de 2.147.483.647, el máximo de `orders.size`), o una `Idempotency-Key` reusada con otro body | 422 | No |
+| Ids fuera de rango (`integer` de Postgres), body de más de 100 kB | 400 / 413 | No |
+| La base no está disponible | 503 + `Retry-After` | Casi nunca; ver "Cuando se cae la base" |
 
 Separé esos casos a propósito. Una orden `REJECTED` está bien formada y el sistema decidió no ejecutarla; eso es parte del historial del usuario y tiene sentido guardarlo. Un request con datos inválidos directamente no es una orden, así que no lo persisto.
 
@@ -171,7 +172,8 @@ Si Postgres no responde, la API no se cuelga ni se cae, y tampoco devuelve un 50
 
 - El pool tiene `connectionTimeoutMillis` de 5 s. Si la base no está, el request falla rápido en vez de quedar esperando para siempre.
 - `statement_timeout` de 10 s. Una query trabada no puede quedarse con el lock del usuario indefinidamente.
-- Los errores de conexión (conexión rechazada, DNS, base reiniciándose, demasiadas conexiones, timeouts) se responden como **503 con `Retry-After: 5`**. Ese 503 le dice al cliente algo útil: el request no se aplicó, porque la transacción se revirtió, y se puede reintentar. En `POST /orders`, si el cliente reintenta con la misma `Idempotency-Key`, no hay riesgo de duplicar la orden.
+- Los errores de conexión (conexión rechazada, DNS, base reiniciándose, demasiadas conexiones, timeouts) se responden como **503 con `Retry-After: 5`**. Casi siempre eso significa que la transacción se revirtió y no se aplicó nada. Hay una excepción que conviene no esconder: si la conexión se corta justo durante el `COMMIT`, no hay forma de saber si la orden quedó guardada. Por eso la regla para el cliente es reintentar las órdenes siempre con la misma `Idempotency-Key`. Si la orden se había guardado, recibe la original; si no, se crea. En ningún caso se duplica.
+- Las respuestas de error llevan `Cache-Control: no-store`, para que un CDN no siga sirviendo un 503 (o un 400) de `/instruments` durante los 5 minutos que se cachea el catálogo.
 - Si una conexión ociosa del pool se corta, por ejemplo porque se reinició la base, pg emite un `error` que sin handler tira abajo el proceso. Lo logueo, y el pool abre una conexión nueva en la próxima query.
 - `GET /health` hace un `select 1`. Lo usa el healthcheck de `docker compose`, y un load balancer lo usaría igual para sacar de rotación una instancia que no llega a la base.
 
@@ -198,8 +200,8 @@ Los logs son JSON estructurado con pino, y cada request lleva un `x-request-id`:
 | Cambio | Por qué |
 |---|---|
 | `NOT NULL` y `CHECK` en `orders` (side, type, status, `size > 0`, `price > 0`) | Que la base rechace lo que la app nunca debería escribir, aunque haya un bug |
-| Default `now() AT TIME ZONE 'utc'` en `orders.datetime` | La columna no tiene zona horaria; así siempre se guarda en UTC |
-| `orders.idempotencykey` con índice único parcial `(userid, idempotencykey)` | Reintentos idempotentes |
+| Default `clock_timestamp() AT TIME ZONE 'utc'` en `orders.datetime` | La columna no tiene zona horaria, así que se guarda siempre en UTC. Uso `clock_timestamp()` y no `now()` porque `now()` es el inicio de la transacción, antes de esperar el lock: una orden que esperó podía quedar con una hora anterior a otra que se ejecutó antes, y el ledger las recorre por fecha |
+| `orders.idempotencykey` con índice único parcial `(userid, idempotencykey)`, y `idempotencyhash` | Reintentos idempotentes, y detectar una key reusada con otro body |
 | Índice `orders (userid, datetime, id)` | Es el acceso del ledger: las órdenes de un usuario en orden cronológico |
 | `UNIQUE marketdata (instrumentid, date)` | Un precio por activo por día; el mismo índice sirve para buscar el último |
 | `UNIQUE instruments (ticker)` y `NOT NULL` | El ticker identifica al activo |
@@ -218,7 +220,7 @@ Nunca escribí en la base de Neon que venía con el enunciado: todo corre en el 
 - **`MARKET` sin precio**: PGR e IRCP no tienen `marketdata`, así que una orden de mercado sobre ellos da 422. No hay con qué precio ejecutarla.
 - **Búsqueda**: no devuelve MONEDA, pone primero el ticker exacto y después los que empiezan igual, y corta en 20 resultados. Los `%` y `_` que mande el usuario se buscan como texto.
 - **Sin autenticación**, como pide el enunciado: el usuario viaja en la ruta o en el body, y cualquiera puede cancelar cualquier orden por id.
-- **Idempotency-Key** devuelve la orden original sin comparar el body. Si se quisiera detectar que reusaron la key con otro contenido, habría que guardar un hash del request y responder 422.
+- **Idempotency-Key**: si se reintenta con el mismo body, devuelve la orden original (200). Si se reusa la key con otro body responde 422, como propone el [draft de la IETF](https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/): casi seguro es un bug del cliente y devolver la orden vieja lo escondería. Para comparar guardo un sha256 del request normalizado, donde `930.5`, `"930.5"` y `"930.50"` cuentan como el mismo precio.
 
 ## Cosas que encontré en los datos
 
