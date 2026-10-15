@@ -1,20 +1,26 @@
 # cocos-challenge-backend
 
-API REST para consultar el portfolio de un usuario, buscar activos y enviar órdenes al mercado.
+API para consultar el portfolio de un usuario, buscar activos y mandar órdenes al mercado. Es mi resolución del challenge de backend de Cocos.
 
 NestJS 11 · Node 24 · TypeScript · PostgreSQL 18 · Kysely · decimal.js · Jest + Testcontainers
 
-## Cómo correrlo
+## Levantarlo
 
-Requisitos: Docker. Para desarrollo local también Node 24 (`nvm use`) y pnpm (`corepack enable`).
+Solo hace falta Docker:
 
 ```bash
 docker compose up --build
 ```
 
-Esto levanta Postgres con los datos del challenge más la migración, y la API en `http://localhost:3000`. Swagger queda en `http://localhost:3000/docs` y hay ejemplos listos en [`requests.http`](requests.http) (REST Client de VS Code o el HTTP Client de JetBrains). Si el 3000 o el 5432 están ocupados: `API_PORT=3001 DB_PORT=5433 docker compose up --build`.
+Levanta Postgres con el `database.sql` del challenge más una migración mía, y la API en `http://localhost:3000`. La documentación de Swagger queda en `/docs`, y en [`requests.http`](requests.http) hay requests listos para probar desde VS Code (REST Client) o JetBrains.
 
-Desarrollo local:
+Si ya tenés algo corriendo en el 3000 o el 5432:
+
+```bash
+API_PORT=3001 DB_PORT=5433 docker compose up --build
+```
+
+Para desarrollar sin Docker para la API (necesitás Node 24, `nvm use`, y pnpm, `corepack enable`):
 
 ```bash
 pnpm install
@@ -26,43 +32,45 @@ pnpm start:dev
 Tests:
 
 ```bash
-pnpm test           # unitarios: dinero (property test) y ledger
-pnpm test:e2e       # funcionales contra Postgres real (necesita Docker)
+pnpm test           # unitarios: aritmética de plata (property test) y el ledger
+pnpm test:e2e       # funcionales contra un Postgres real; necesita Docker
 pnpm lint
 ```
 
 ## Endpoints
 
-| Método | Ruta | Descripción |
+| Método | Ruta | Qué hace |
 |---|---|---|
-| `GET` | `/instruments?q=` | Busca por ticker y/o nombre |
+| `GET` | `/instruments?q=` | Busca activos por ticker y/o nombre |
 | `GET` | `/users/:userId/portfolio` | Valor total, pesos disponibles y posiciones |
-| `POST` | `/orders` | Envía una orden (`BUY`/`SELL` `MARKET`/`LIMIT`, `CASH_IN`/`CASH_OUT`) |
-| `POST` | `/orders/:id/cancel` | Cancela una orden `NEW` |
+| `POST` | `/orders` | Manda una orden: `BUY`/`SELL` (`MARKET` o `LIMIT`), `CASH_IN`/`CASH_OUT` |
+| `POST` | `/orders/:id/cancel` | Cancela una orden en estado `NEW` |
 
-### `POST /orders`
+### Mandar una orden
 
 ```json
 { "userId": 1, "instrumentId": 47, "side": "BUY", "type": "LIMIT", "size": 10, "price": "930.50" }
 ```
 
-- Se manda `size` (cantidad de acciones) **o** `amount` (pesos a invertir), nunca los dos. Con `amount` se calcula la máxima cantidad de acciones enteras que cubre.
-- `price` es obligatorio en `LIMIT` y no se acepta en `MARKET`, que se ejecuta al último `close`.
-- Header opcional `Idempotency-Key`: si se reintenta con la misma key se devuelve la orden original con `200` en lugar de crear otra.
+- Se manda `size` (cantidad de acciones) o `amount` (pesos a invertir), uno de los dos. Con `amount` la API calcula cuántas acciones enteras se pueden comprar con esa plata.
+- `price` es obligatorio en las `LIMIT`. En las `MARKET` no se manda, porque se ejecutan al último `close`.
+- El header `Idempotency-Key` es opcional. Si un cliente reintenta con la misma key, recibe la orden original con un `200` y no se crea una nueva.
 
-| Resultado | HTTP | ¿Se guarda? |
+Qué devuelve según el caso:
+
+| Caso | HTTP | ¿Se guarda? |
 |---|---|---|
 | `MARKET` ejecutada | 201, `FILLED` | Sí |
 | `LIMIT` aceptada | 201, `NEW` | Sí |
-| Sin pesos o acciones suficientes | 201, `REJECTED` | Sí, como pide el enunciado |
-| Payload inválido, usuario o instrumento inexistente | 400 / 404 | No |
-| `MARKET` sobre un activo sin precio, o un monto que no alcanza para 1 acción | 422 | No |
+| No alcanzan los pesos o las acciones | 201, `REJECTED` | Sí, como pide el enunciado |
+| Body inválido, usuario o instrumento que no existe | 400 / 404 | No |
+| `MARKET` sobre un activo sin precio, o un monto que no alcanza para una acción | 422 | No |
 
-La distinción es intencional: `REJECTED` es una decisión de negocio sobre una orden bien formada, y queda en el historial del usuario. Un request mal formado no es una orden y no tiene sentido persistirlo.
+Separé esos casos a propósito. Una orden `REJECTED` está bien formada y el sistema decidió no ejecutarla; eso es parte del historial del usuario y tiene sentido guardarlo. Un request con datos inválidos directamente no es una orden, así que no lo persisto.
 
-Todos los errores salen como [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) `application/problem+json`.
+Los errores siguen el formato [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) (`application/problem+json`).
 
-### `GET /users/:userId/portfolio`
+### Portfolio
 
 ```json
 {
@@ -81,107 +89,134 @@ Todos los errores salen como [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) 
 }
 ```
 
+Los montos van como string a propósito, para que nadie del otro lado los parsee a float.
+
 ## Arquitectura
 
-![Arquitectura](docs/architecture.svg)
+![Diagrama de arquitectura](docs/architecture.svg)
 
-El diagrama editable está en [`docs/architecture.excalidraw`](docs/architecture.excalidraw) (se abre en excalidraw.com). A la izquierda está lo que hay en este repo; a la derecha, cómo evolucionaría en producción sin tirar nada de lo construido.
+El diagrama está hecho en Excalidraw: [`docs/architecture.excalidraw`](docs/architecture.excalidraw) se puede abrir y editar en [excalidraw.com](https://excalidraw.com) (menú → Open). A la izquierda está lo que hay en este repo; a la derecha, cómo lo haría crecer para producción sin tener que tirar nada de lo que ya está.
 
 ```
 src/
-  common/money.ts          contexto decimal único y división truncada exacta
+  common/money.ts          contexto decimal y división truncada
   common/problem.filter.ts errores RFC 9457
   db/database.ts           Kysely, tipos de las tablas y parsers de pg
   instruments/             búsqueda
-  portfolio/ledger.ts      cálculo de cash y posiciones (fuente única de verdad)
+  portfolio/ledger.ts      cálculo de cash y posiciones (lo usan portfolio y órdenes)
   portfolio/               endpoint de portfolio
   orders/                  envío y cancelación de órdenes
 db/migrations/             cambios sobre database.sql
 test/api.e2e-spec.ts       tests funcionales
 ```
 
-No hay capa de repositorios: cada service usa Kysely directo. Con una sola base y sin planes de cambiarla, una interfaz por repositorio sería indirección sin beneficio.
+No armé una capa de repositorios. Cada service usa Kysely directo: con una sola base y sin planes de cambiarla, una interfaz por repositorio hubiera sido indirección sin nada a cambio.
 
-## Decisiones técnicas
+## Decisiones
 
-**NestJS.** Módulos, inyección de dependencias y `ValidationPipe` dan una estructura conocida sin tener que inventarla. El plugin de Swagger genera la documentación a partir de los DTOs, así que la doc no se desincroniza del código.
+### NestJS + Kysely
 
-**Kysely en lugar de un ORM.** El dominio es chico pero sensible: transacciones explícitas, un advisory lock, `DISTINCT ON` para el último precio y columnas `numeric`. Kysely tipa las queries contra el esquema sin esconder el SQL. TypeORM o Prisma agregan una capa de mapeo que acá no aporta y complica justo las partes delicadas (numeric, locks).
+NestJS me da módulos, inyección de dependencias y validación de DTOs sin tener que inventar una estructura, y cualquiera que lo conozca se ubica rápido en el código. El plugin de Swagger arma la documentación a partir de los DTOs, así que no se desincroniza.
 
-**Plata en decimal, nunca en `number`.** `0.1 + 0.2` en float no da `0.3`, y en un broker eso no es aceptable.
-- El driver convierte `numeric` directo a `decimal.js` (`db/database.ts`), así que un monto nunca pasa por float.
-- Toda la aritmética usa un único contexto (`common/money.ts`) con `ROUND_HALF_UP`, la misma semántica que `round()` de Postgres.
-- Se redondea una sola vez, al armar la respuesta. Los montos viajan como string en el JSON para que el cliente tampoco los convierta a float.
-- La cantidad de acciones para un monto usa `divToInt`, que trunca exacto. `div().floor()` redondea el cociente antes de truncar y en un caso borde puede dar una acción de más. Hay un property test (fast-check) que verifica `qty × price ≤ amount < (qty + 1) × price` para miles de combinaciones.
-- La API rechaza precios y montos con más de 2 decimales en lugar de aceptarlos: `orders.price` es `numeric(10,2)` y Postgres los redondearía en silencio.
+Para la base elegí Kysely en vez de un ORM. El dominio es chico pero las partes delicadas son justamente las que un ORM esconde: transacciones explícitas, un advisory lock, `DISTINCT ON` para el último precio y columnas `numeric`. Kysely tipa las queries contra el esquema y el SQL sigue a la vista. Con TypeORM o Prisma iba a estar peleando contra el mapeo justo en esas partes.
 
-**Un solo cálculo de saldos (`portfolio/ledger.ts`).** El portfolio y la validación de órdenes usan la misma función pura, que recorre las órdenes del usuario en orden cronológico. Si fueran dos implementaciones, tarde o temprano el portfolio mostraría un saldo distinto del que se valida al operar.
+### La plata nunca pasa por `number`
 
-**Costo promedio ponderado para el rendimiento.** Las compras suman costo, y las ventas sacan costo al promedio vigente. Esto necesita recorrer las órdenes en orden: un `SUM(costo) / SUM(cantidad)` en SQL da mal en cuanto se cierra y se reabre una posición (hay un test unitario con ese caso).
+En JavaScript `0.1 + 0.2` da `0.30000000000000004`. En un broker eso no puede pasar, así que:
 
-**Órdenes `NEW` reservan saldo.** Una `LIMIT` de compra pendiente compromete sus pesos y una de venta compromete sus acciones. Si no, un usuario podría dejar varias órdenes límite que juntas superan lo que tiene. `availableCash` ya descuenta lo reservado, y cancelar libera la reserva.
+- El driver de pg convierte `numeric` directo a `decimal.js` ([`db/database.ts`](src/db/database.ts)). Un monto nunca llega a ser float.
+- Todas las cuentas usan un único contexto ([`common/money.ts`](src/common/money.ts)) con `ROUND_HALF_UP`, que es como redondea `round()` en Postgres. Así la app y la base no pueden dar resultados distintos.
+- Redondeo una sola vez, al armar la respuesta. Redondear en pasos intermedios acumula error.
+- Para pasar de pesos a cantidad de acciones uso `divToInt`, que trunca de forma exacta. `div().floor()` redondea el cociente antes de truncar y en algún caso borde te da una acción de más. Hay un property test con fast-check que prueba `qty × price ≤ amount < (qty + 1) × price` sobre miles de combinaciones.
+- Si mandás un precio con más de 2 decimales, la API lo rechaza. `orders.price` es `numeric(10,2)` y Postgres lo redondearía sin avisar, y prefiero que el cliente se entere.
 
-**Concurrencia: `pg_advisory_xact_lock(userId)`.** Cada orden corre en una transacción que primero toma un lock por usuario. Sin eso, dos órdenes simultáneas leen el mismo saldo, pasan las dos la validación y el usuario gasta dos veces la misma plata.
-- Es por usuario, así que no bloquea a los demás.
-- Es transaccional: se libera solo con el commit o el rollback y funciona detrás de poolers en modo transacción (PgBouncer, el pooler de Neon), donde un lock de sesión no sería confiable.
-- El test de concurrencia es determinístico: bloquea la tabla hasta que todas las requests están esperando y las libera juntas. Lo verifiqué sacando el lock: el test falla con 5 de 5 órdenes `FILLED` teniendo plata para una sola.
+### Un solo lugar que calcula saldos
 
-**Cancelación sin lock.** `UPDATE ... WHERE id = $1 AND status = 'NEW'` es atómico: si dos requests compiten, solo una cambia la fila.
+[`portfolio/ledger.ts`](src/portfolio/ledger.ts) recorre las órdenes del usuario en orden cronológico y devuelve cash y posiciones. El portfolio y la validación de órdenes usan esa misma función. Si fueran dos implementaciones, tarde o temprano el portfolio iba a mostrar un saldo distinto del que se valida al operar.
 
-**Idempotency-Key.** Si un cliente hace timeout y reintenta un `POST /orders`, sin esto compra dos veces. La key se guarda con la orden con un índice único parcial `(userid, idempotencykey)`, y como la verificación ocurre dentro del lock del usuario no hay carrera entre el reintento y el original.
+El rendimiento lo calculo contra el costo promedio ponderado: cada compra suma su costo, y cada venta saca costo al promedio vigente. Por eso hace falta recorrer las órdenes en orden. Un `SUM(costo) / SUM(cantidad)` en SQL da mal en cuanto cerrás una posición y la volvés a abrir, y hay un test unitario con ese caso.
 
-**Caché solo donde no puede dañar.** `GET /instruments` responde con `Cache-Control: public, max-age=300` y Express agrega el ETag, así que el cliente o un CDN pueden cachear el catálogo sin infraestructura extra. Saldos, posiciones y portfolio **no se cachean nunca**: un saldo viejo en el camino de una orden es exactamente el doble gasto que evita el lock. No agregué Redis porque no hay un problema medido que lo justifique; con los índices, las queries tardan menos de un milisegundo.
+### Las órdenes `NEW` reservan saldo
 
-**Tests funcionales contra Postgres real.** Testcontainers levanta Postgres 18 con el mismo `database.sql` y la misma migración que `docker compose`. No hay mocks de base: los locks, los constraints y el tipo `numeric` son justamente lo que hay que probar. Cada test crea su propio usuario, así no dependen del orden ni entre sí.
+Una `LIMIT` de compra pendiente compromete los pesos que va a usar, y una de venta compromete las acciones. Sin esto, un usuario con $1.000 podría dejar diez órdenes límite de $1.000 cada una. `availableCash` ya descuenta lo reservado, y al cancelar la reserva se libera.
 
-**Node 24.** Testcontainers 12 requiere Node ≥ 22.22, y Kysely 0.29 y `@nestjs/swagger` 12 se publican solo como ESM. Node 24 (LTS activa) los carga desde CommonJS, y Jest lo soporta con `--experimental-vm-modules`, que está en los scripts de test. Preferí eso a fijar versiones viejas.
+### Concurrencia
 
-**Extras.** Logs estructurados con pino y `x-request-id` (se respeta el que manda el cliente o el gateway, y si no se genera uno). CI en GitHub Actions corre lint, build, tests unitarios y e2e.
+Si llegan dos órdenes del mismo usuario al mismo tiempo, las dos leen el mismo saldo, las dos pasan la validación y el usuario gasta dos veces la misma plata. Para evitarlo, cada orden corre en una transacción que arranca con `pg_advisory_xact_lock(userId)`:
+
+- El lock es por usuario, así que no frena a nadie más.
+- Es de transacción: se suelta solo con el commit o el rollback, y funciona detrás de un pooler en modo transacción (PgBouncer, el de Neon), donde un lock de sesión no sería confiable.
+
+El primer test de concurrencia que escribí pasaba aunque sacara el lock: en local cada transacción dura un milisegundo y nunca llegaban a pisarse. Lo reescribí para que fuerce la carrera. Bloquea la tabla, espera a que todas las requests estén encoladas y las suelta juntas. Sin el lock, se llenan 5 de 5 órdenes teniendo plata para una sola; con el lock se llena una.
+
+Cancelar no necesita lock: `UPDATE ... WHERE id = $1 AND status = 'NEW'` es atómico, y si dos requests compiten solo una modifica la fila.
+
+### Idempotency-Key
+
+Si el cliente hace timeout y reintenta un `POST /orders`, sin esto compra dos veces. La key se guarda con la orden con un índice único `(userid, idempotencykey)`. Como se chequea adentro del lock del usuario, no hay carrera entre el reintento y el request original.
+
+### Caché, pero solo donde no hace daño
+
+`GET /instruments` responde con `Cache-Control: public, max-age=300`, y Express le agrega el ETag. El catálogo casi no cambia, así que el navegador o un CDN lo pueden cachear sin que yo agregue infraestructura.
+
+Saldos, posiciones y portfolio no se cachean. Un saldo viejo en el camino de una orden es exactamente el doble gasto que el lock está evitando. Tampoco agregué Redis: no tengo un problema medido que lo justifique, y con los índices las queries tardan menos de un milisegundo.
+
+### Tests contra Postgres real
+
+Testcontainers levanta un Postgres 18 con el mismo `database.sql` y la misma migración que usa `docker compose`. No hay mocks de la base, porque lo que más me interesa probar (los locks, los constraints, el tipo `numeric`) es justamente lo que un mock no tiene. Cada test crea su propio usuario, así que no dependen del orden ni entre sí.
+
+### Node 24
+
+Testcontainers 12 pide Node 22.22 o más, y Kysely 0.29 y `@nestjs/swagger` 12 se publican solo como ESM. Node 24 (la LTS activa) los carga desde CommonJS sin problema, y Jest los soporta con `--experimental-vm-modules`, que ya está en los scripts. Me pareció mejor que quedarme en versiones viejas.
+
+### Otros detalles
+
+Los logs son JSON estructurado con pino, y cada request lleva un `x-request-id`: si lo manda el cliente o un gateway lo respeto, y si no genero uno. El CI de GitHub Actions corre lint, build, tests unitarios y e2e.
 
 ## Base de datos
 
-`database.sql` es un `pg_dump` de la base provista, sin modificaciones. Los cambios están en [`db/migrations/001_integrity_and_indexes.sql`](db/migrations/001_integrity_and_indexes.sql), que `docker compose` aplica después del seed:
+`database.sql` es el archivo que pasó Cocos, tal cual. Mis cambios están aparte, en [`db/migrations/001_integrity_and_indexes.sql`](db/migrations/001_integrity_and_indexes.sql), y `docker compose` los aplica después del seed:
 
 | Cambio | Por qué |
 |---|---|
-| `NOT NULL` y `CHECK` en `orders` (side, type, status, `size > 0`, `price > 0`) | La base rechaza lo que la app nunca debería escribir, aunque haya un bug |
-| `orders.datetime` con default `now() AT TIME ZONE 'utc'` | La columna no tiene zona horaria; se guarda siempre en UTC |
-| `orders.idempotencykey` + índice único parcial `(userid, idempotencykey)` | Reintentos idempotentes de `POST /orders` |
-| Índice `orders (userid, datetime, id)` | Es exactamente el acceso del ledger: órdenes de un usuario en orden cronológico |
-| `UNIQUE marketdata (instrumentid, date)` | Un precio por activo por día; también sirve para buscar el último precio |
-| `UNIQUE instruments (ticker)` y `NOT NULL` | El ticker es un identificador |
-| `pg_trgm` + índices GIN en ticker y nombre | `ILIKE '%q%'` no usa un btree; con trigramas sí usa índice |
+| `NOT NULL` y `CHECK` en `orders` (side, type, status, `size > 0`, `price > 0`) | Que la base rechace lo que la app nunca debería escribir, aunque haya un bug |
+| Default `now() AT TIME ZONE 'utc'` en `orders.datetime` | La columna no tiene zona horaria; así siempre se guarda en UTC |
+| `orders.idempotencykey` con índice único parcial `(userid, idempotencykey)` | Reintentos idempotentes |
+| Índice `orders (userid, datetime, id)` | Es el acceso del ledger: las órdenes de un usuario en orden cronológico |
+| `UNIQUE marketdata (instrumentid, date)` | Un precio por activo por día; el mismo índice sirve para buscar el último |
+| `UNIQUE instruments (ticker)` y `NOT NULL` | El ticker identifica al activo |
+| `pg_trgm` con índices GIN en ticker y nombre | `ILIKE '%q%'` no puede usar un btree; con trigramas sí |
 
-Con 66 activos y 11 órdenes todo esto parece de más, pero los constraints son sobre todo de integridad y los índices son los que haría falta con datos reales.
+Con 66 activos y 11 órdenes parece mucho. Los constraints están por integridad, no por performance, y los índices son los que harían falta con datos reales.
 
-No modifiqué la base compartida de Neon: todo corre sobre el Postgres local.
+Nunca escribí en la base de Neon que venía con el enunciado: todo corre en el Postgres local.
 
-## Suposiciones e interpretación del enunciado
+## Supuestos
 
-- **Pesos disponibles** = cash por movimientos `FILLED` menos lo reservado por compras `NEW`. **Valor total** = cash (incluido lo reservado, que sigue siendo del usuario) más el valor de mercado de las posiciones.
-- **Rendimiento total** = valor de mercado contra costo promedio de las acciones en cartera. Además devuelvo el **rendimiento diario** (`close` contra `previousClose`), que el enunciado menciona aparte.
-- **Cash.** Se identifica por `type = 'MONEDA'` (ARS, id 66), no por un id fijo. `CASH_IN`/`CASH_OUT` usan ese instrumento, son `MARKET` y van por el mismo `POST /orders`. Como `orders.size` es `integer` y guarda los pesos, las transferencias son en pesos enteros: un monto con centavos se rechaza en vez de truncarse.
-- **Las órdenes `LIMIT` quedan `NEW`.** No simulo el mercado, como indica el enunciado, así que nunca pasan solas a `FILLED`.
-- **`MARKET` sobre un activo sin precio** (PGR e IRCP no tienen `marketdata`) responde 422: no hay precio con el cual ejecutar ni con el cual registrarla.
-- **La búsqueda** excluye MONEDA, prioriza ticker exacto y después prefijo, y devuelve como máximo 20 resultados. Los `%` y `_` del input se toman como texto literal.
-- **Sin autenticación**, como indica el enunciado: el usuario viaja en la ruta o en el body, y cualquiera puede cancelar cualquier orden por id.
-- **Idempotency-Key** devuelve la orden original sin comparar el body. Guardar un hash del request permitiría responder 422 si se reutiliza la key con otro contenido.
+- **Pesos disponibles**: el cash de los movimientos `FILLED` menos lo reservado por compras `NEW`. **Valor total**: el cash (incluido lo reservado, que sigue siendo del usuario) más el valor de mercado de las posiciones.
+- **Rendimiento**: devuelvo el total (valor de mercado contra costo promedio) y además el diario (`close` contra `previousClose`), que el enunciado menciona aparte.
+- **Cash**: lo identifico por `type = 'MONEDA'` (ARS, id 66) y no por un id fijo. `CASH_IN` y `CASH_OUT` usan ese instrumento, son `MARKET` y entran por el mismo `POST /orders`. Como `orders.size` es `integer` y ahí van los pesos, las transferencias son en pesos enteros; si mandás centavos, la API lo rechaza en vez de truncar.
+- **Las `LIMIT` quedan en `NEW`**: no simulo el mercado, como dice el enunciado, así que nunca pasan solas a `FILLED`.
+- **`MARKET` sin precio**: PGR e IRCP no tienen `marketdata`, así que una orden de mercado sobre ellos da 422. No hay con qué precio ejecutarla.
+- **Búsqueda**: no devuelve MONEDA, pone primero el ticker exacto y después los que empiezan igual, y corta en 20 resultados. Los `%` y `_` que mande el usuario se buscan como texto.
+- **Sin autenticación**, como pide el enunciado: el usuario viaja en la ruta o en el body, y cualquiera puede cancelar cualquier orden por id.
+- **Idempotency-Key** devuelve la orden original sin comparar el body. Si se quisiera detectar que reusaron la key con otro contenido, habría que guardar un hash del request y responder 422.
 
-## Lo que encontré en los datos
+## Cosas que encontré en los datos
 
-- `marketdata` tiene la columna `date`, no `datetime` como dice el enunciado, y todas las columnas están en minúscula (`instrumentid`, `previousclose`).
-- `price` y los precios de `marketdata` son `numeric(10,2)`; `size` es `integer`.
-- **El seed tiene una venta en descubierto:** el usuario 1 compra 20 BMA y vende 30, ambas `FILLED`, y queda en −10. El portfolio lo muestra tal cual porque es lo que dice el ledger (sin costo promedio ni rendimiento, porque no aplican), y el flujo actual rechaza esa venta.
+- En `marketdata` la columna se llama `date`, no `datetime` como dice el enunciado. Además, como el SQL no usa comillas, todas las columnas quedan en minúscula (`instrumentid`, `previousclose`).
+- Los precios son `numeric(10,2)` pero el seed los inserta con 8 decimales. Postgres los redondea al cargarlos: el `previousclose` de 1047.166 de BBAR queda en 1047.17.
+- **Hay una venta en descubierto en el seed**: el usuario 1 compra 20 BMA y vende 30, las dos `FILLED`, y queda en −10. El portfolio lo muestra así porque es lo que dice el historial (sin costo promedio ni rendimiento, que no aplican). Con la validación actual esa venta se rechazaría.
 
-## Producción
+## Si esto fuera a producción
 
-Lo que agregaría en un entorno real, en el orden en que lo haría falta:
+Lo que agregaría, más o menos en el orden en que haría falta:
 
-1. **Auth y rate limiting** en el gateway; el `userId` sale del token y no del request.
-2. **Réplicas de la API.** Es stateless, así que escala horizontalmente sin cambios.
-3. **Proyección de posiciones.** Hoy el ledger recorre todas las órdenes del usuario en cada request (O(n)). Con volumen real, una tabla `positions` actualizada en la misma transacción que cada ejecución. No es event sourcing, es una tabla derivada que nunca se desincroniza.
-4. **Precios en vivo.** Un market data feed que escribe en Redis (la API solo lee). Saldos y posiciones siguen leyéndose del primary dentro de la transacción.
-5. **Mercado real.** Las órdenes se escriben en una tabla outbox en la misma transacción; un relay las envía al mercado y un consumer aplica los fills (`NEW → FILLED`). El outbox evita el dual-write: no puede quedar una orden guardada sin enviar ni enviada sin guardar.
-6. **Read replica** para la búsqueda y el historial, que toleran unos milisegundos de atraso. Lo que toca plata va siempre al primary.
+1. **Auth y rate limiting** en un gateway. El `userId` saldría del token y no del request.
+2. **Más réplicas de la API.** No guarda estado, así que escala horizontalmente sin tocar nada.
+3. **Una tabla de posiciones.** Hoy el ledger recorre todas las órdenes del usuario en cada request. Con volumen real, mantendría una tabla `positions` que se actualiza en la misma transacción que cada ejecución. No es event sourcing, es una tabla derivada que no se puede desincronizar.
+4. **Precios en vivo.** Un feed de market data escribiendo en Redis, y la API solo leyendo de ahí. Los saldos y las posiciones se siguen leyendo del primary, dentro de la transacción.
+5. **Conexión con el mercado.** Cada orden se escribe también en una tabla outbox en la misma transacción; un proceso aparte las manda al mercado y otro aplica las ejecuciones (`NEW → FILLED`). El outbox evita que quede una orden guardada sin enviar, o enviada sin guardar.
+6. **Read replica** para la búsqueda y el historial, que se bancan unos milisegundos de atraso. Todo lo que toca plata va al primary.
 
-Lo que **no** haría todavía: CQRS, event sourcing, microservicios o una caché de saldos. Cada uno resuelve un problema que este sistema no tiene, y lo pagaría en complejidad desde el primer día.
+Lo que no haría todavía: CQRS, event sourcing, microservicios o una caché de saldos. Cada uno resuelve un problema que este sistema hoy no tiene, y lo pagaría en complejidad desde el primer día.
