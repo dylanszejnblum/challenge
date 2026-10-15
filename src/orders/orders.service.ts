@@ -11,13 +11,14 @@ import { ars, D, maxShares } from '../common/money';
 import { DB, InjectDb, OrderStatus } from '../db/database';
 import { computeHoldings, latestPrices, loadLedger } from '../portfolio/ledger';
 import { CreateOrderDto } from './create-order.dto';
+import { OrderDto } from './order.dto';
 
 /** Namespace for pg_advisory_xact_lock(namespace, userId), so other locks can't collide. */
 const ORDERS_LOCK = 1;
 
 export type OrderRow = Selectable<DB['orders']>;
 
-export const toOrderResponse = (o: OrderRow) => ({
+export const toOrderResponse = (o: OrderRow): OrderDto => ({
   id: o.id,
   userId: o.userid,
   instrumentId: o.instrumentid,

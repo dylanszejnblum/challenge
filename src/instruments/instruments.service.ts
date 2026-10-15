@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Kysely, sql } from 'kysely';
 import { DB, InjectDb } from '../db/database';
+import { InstrumentDto } from './instrument.dto';
 
 const SEARCH_LIMIT = 20;
 
@@ -13,7 +14,7 @@ export class InstrumentsService {
    * Ranking: exact ticker, then ticker prefix, then alphabetical.
    * Cash (MONEDA) is not a tradable asset, so it is excluded.
    */
-  search(q: string) {
+  search(q: string): Promise<InstrumentDto[]> {
     const term = q.replace(/[\\%_]/g, '\\$&'); // user input is literal, not a LIKE pattern
     return this.db
       .selectFrom('instruments')

@@ -17,7 +17,9 @@ async function bootstrap() {
 
   const config = new DocumentBuilder()
     .setTitle('Cocos challenge API')
-    .setDescription('Portfolio, instrument search and order routing')
+    .setDescription(
+      'Portfolio, instrument search and order routing. Money is sent and returned as decimal strings. Errors are RFC 9457 application/problem+json; 503 (with Retry-After) means the database is unavailable and the request is safe to retry.',
+    )
     .build();
   SwaggerModule.setup('docs', app, () =>
     SwaggerModule.createDocument(app, config),

@@ -4,6 +4,7 @@ import { Kysely } from 'kysely';
 import { ars, D, pct } from '../common/money';
 import { DB, InjectDb } from '../db/database';
 import { computeHoldings, latestPrices, loadLedger } from './ledger';
+import { PortfolioDto } from './portfolio.dto';
 
 const HUNDRED = new D(100);
 /** (a - b) / b as a percentage; null when there is no base. */
@@ -14,7 +15,7 @@ const returnPct = (a: Decimal, b: Decimal) =>
 export class PortfolioService {
   constructor(@InjectDb() private readonly db: Kysely<DB>) {}
 
-  async getPortfolio(userId: number) {
+  async getPortfolio(userId: number): Promise<PortfolioDto> {
     const user = await this.db
       .selectFrom('users')
       .select(['id', 'accountnumber'])
