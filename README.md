@@ -238,6 +238,35 @@ Nunca escribí en la base de Neon que venía con el enunciado: todo corre en el 
 - Los precios son `numeric(10,2)` pero el seed los inserta con 8 decimales. Postgres los redondea al cargarlos: el `previousclose` de 1047.166 de BBAR queda en 1047.17.
 - **Hay una venta en descubierto en el seed**: el usuario 1 compra 20 BMA y vende 30, las dos `FILLED`, y queda en −10. El portfolio lo muestra así porque es lo que dice el historial (sin costo promedio ni rendimiento, que no aplican). Con la validación actual esa venta se rechazaría.
 
+## Ramas y releases
+
+| Rama | Para qué está | Cómo entra código |
+|---|---|---|
+| `main` | Lo que está en producción. Siempre se puede deployar, y cada merge es un release con su tag | Solo por PR desde `develop`, o un hotfix |
+| `develop` | Integración: lo que va a salir en el próximo release | Por PR desde `feat/*` o `fix/*` |
+| `feat/<nombre>` | Una funcionalidad nueva | Sale de `develop` y vuelve por PR |
+| `fix/<nombre>` | Una corrección | Sale de `develop` y vuelve por PR |
+
+Cambios que no tocan comportamiento usan el mismo flujo con `docs/` o `chore/`.
+
+Las reglas:
+
+- Nadie pushea directo a `main` ni a `develop`. Las dos ramas están protegidas: piden PR y el CI en verde.
+- De `feat/*` o `fix/*` a `develop` mergeo con **squash**: un commit por cambio, con el título en formato Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`). Así el historial de `develop` se lee como un changelog.
+- De `develop` a `main` mergeo con **merge commit**, sin squash. Si hiciera squash, `main` y `develop` dejarían de compartir historia y el siguiente release arrastraría conflictos falsos.
+- **Hotfix:** una rama `fix/*` sale de `main`, entra a `main` por PR y después mergeo `main` en `develop`, para que el arreglo no se pierda en el próximo release.
+
+### Cómo pienso los releases
+
+- **Chicos y seguidos.** Cuanto menos cambia entre un release y el siguiente, más fácil es saber qué rompió algo y más barato volver atrás.
+- **`main` siempre deployable.** Todo lo que llega a `main` pasó el CI dos veces: en el PR a `develop` y en el PR de release. El CI incluye los tests e2e contra un Postgres real, no solo unitarios.
+- **Versionado semántico con tags** (`v1.0.0`). Es una API que consumen apps móviles, y las apps no se actualizan todas a la vez, así que romper el contrato sale caro. Un campo nuevo en la respuesta es un minor; sacar o renombrar uno es un major, y antes tiene que pasar un release marcado como deprecado.
+- **Migraciones compatibles hacia atrás** (expand/contract). Primero se agrega la columna nueva, después se deploya el código que la usa, y recién en un release posterior se borra lo viejo. Así, si hay que volver a la versión anterior del código, la base no le rompe.
+- **Rollback es volver a deployar el tag anterior.** No se arregla nada a mano sobre `main`: si hace falta un arreglo, es un hotfix con su PR.
+- **Feature flags antes que ramas largas.** Si algo no está terminado pero conviene integrarlo para que no se aleje de `develop`, entra apagado.
+
+El historial anterior a `v1.0.0` está directo en `main`, porque el repo arrancó como trabajo de una sola persona. Desde `v1.0.0` todo entra por PR.
+
 ## Si esto fuera a producción
 
 Lo que agregaría, más o menos en el orden en que haría falta:
